@@ -247,19 +247,31 @@ const TIERS = [
 ];
 const getTier = (p) => TIERS.find((t) => p >= t.min) ?? TIERS[TIERS.length - 1];
 
+
 /* ══════════════════════════════════════════════════════
    USER AVATAR
    ══════════════════════════════════════════════════════ */
 function UserAvatar({ user, size = 32 }) {
-  const [imgError, setImgError] = useState(false);
+  const [failedImageUrl, setFailedImageUrl] = useState("");
   const displayName = user?.full_name || user?.email || "Player";
   const initial = displayName?.[0]?.toUpperCase() || "P";
-  let imageUrl = user?.profile_image_url || user?.profile_image || "";
-  if (imageUrl.includes("/users/users/")) imageUrl = imageUrl.replace("/users/users/", "/users/");
-  if (imageUrl && !imageUrl.startsWith("http")) imageUrl = `${API_URL}${imageUrl}`;
 
-  return !imgError && imageUrl ? (
-    <img src={imageUrl} alt={displayName} onError={() => setImgError(true)}
+  // Same approach as UserProfileSettings: use the value as-is.
+  // Only fix up a relative backend path; leave data:/http/blob URLs untouched.
+  const rawValue = user?.profile_image_url || user?.profile_image || "";
+  let imageUrl = "";
+  if (typeof rawValue === "string" && rawValue) {
+    if (rawValue.startsWith("data:") || rawValue.startsWith("http") || rawValue.startsWith("blob:")) {
+      imageUrl = rawValue;
+    } else {
+      let fixed = rawValue;
+      if (fixed.includes("/users/users/")) fixed = fixed.replace("/users/users/", "/users/");
+      imageUrl = `${API_URL}${fixed}`;
+    }
+  }
+
+  return imageUrl && failedImageUrl !== imageUrl ? (
+    <img src={imageUrl} alt={displayName} onError={() => setFailedImageUrl(imageUrl)}
       style={{ width: size, height: size, borderRadius: "50%", objectFit: "cover", display: "block", flexShrink: 0 }}/>
   ) : (
     <div style={{
