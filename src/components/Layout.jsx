@@ -166,6 +166,9 @@ const CSS = `
   /* ── Responsive base ───────────────────────────── */
   @media (max-width: 640px) {
     .dqd-section { padding: clamp(32px, 6vw, 56px) clamp(14px, 4vw, 24px); }
+    .dqd-layout::before,
+    .dqd-layout::after,
+    .dqd-orb { display: none; }
   }
 `;
 

@@ -30,6 +30,7 @@ const BASE_URL = "https://api.dqdgaming.com"; // change to your API base URL
 const MOBILE_BREAKPOINT = 640;
 const AUTOPLAY_MS = 5200;
 const PARTICLE_COUNT = 26;
+const MOBILE_PARTICLE_COUNT = 8;
 
 const CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Rajdhani:wght@400;600;700&family=Share+Tech+Mono&display=swap');
@@ -483,6 +484,10 @@ const CSS = `
   .hsm-particle.pink   { background: #FF2D78; box-shadow: 0 0 8px 1px rgba(255,45,120,.75); }
   .hsm-particle.gold   { background: #D4AF37; box-shadow: 0 0 7px 1px rgba(212,175,55,.7); }
 
+  @media (max-width: 640px) {
+    .hsm-particle { box-shadow: none !important; }
+  }
+
   .hsm-topbar {
     position: absolute;
     top: 0; left: 0; right: 0;
@@ -868,7 +873,10 @@ export default function HeroSlider({ banners = [], signInUrl = "/sign-in", redir
   const N = banners.length;
 
   // particle field generated once per mount, reused across re-renders/slides
-  const particles = useMemo(() => makeParticles(PARTICLE_COUNT), []);
+  const particles = useMemo(
+    () => makeParticles(isMobile ? MOBILE_PARTICLE_COUNT : PARTICLE_COUNT),
+    [isMobile]
+  );
 
   // watch the breakpoint
   useEffect(() => {
