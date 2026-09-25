@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Layout from "../Layout";
 import { getHomePage } from "../api/homeapi";
@@ -16,8 +16,11 @@ const PLAYER_Y   = TRACK_H - CAR_H - 18;
 const OBS_W      = 38;
 const OBS_H      = 60;
 const BASE_SPEED = 3.2;
-const SPEED_INC  = 0.0008;   // per frame
-const SPAWN_INT  = 72;       // frames between obstacle spawns
+const SPEED_INC  = 0.0008;   // per frame-equivalent (60fps step)
+const SPAWN_INT  = 72;       // frame-equivalents between obstacle spawns
+const MAX_DT     = 48;       // clamp huge frame gaps (tab-switch, GC pause, etc.)
+const FRAME_MS   = 16.6667;  // 60fps reference step
+const HUD_THROTTLE_MS = 50;  // ~20 HUD updates/sec is plenty smooth for numbers
 
 const LANES = [
   LANE_W * 0 + (LANE_W - CAR_W) / 2,
@@ -27,6 +30,9 @@ const LANES = [
 
 /* ═══════════════════════════════════════════════
    CSS
+   (visuals unchanged — animations rewritten to use
+   transform/opacity only so they run on the compositor
+   thread instead of triggering layout+paint every frame)
 ═══════════════════════════════════════════════ */
 const ALL_CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&display=swap');
@@ -38,10 +44,13 @@ const ALL_CSS = `
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
     gap: 32px; position: fixed; inset: 0; z-index: 9999;
+    contain: layout style paint;
   }
   .hs-loader-orb {
     position: absolute; border-radius: 50%;
     pointer-events: none; filter: blur(80px);
+    will-change: transform;
+    transform: translateZ(0);
   }
   .hs-loader-orb-1 {
     width: 420px; height: 420px; top: -10%; left: -8%;
@@ -60,25 +69,28 @@ const ALL_CSS = `
     font-size: 22px; font-weight: 900; color: #D4AF37;
     animation: hs-pulse 2s ease-in-out infinite;
     position: relative; z-index: 1;
+    will-change: box-shadow, border-color;
   }
   @keyframes hs-pulse {
     0%,100% { box-shadow: 0 0 0 rgba(212,175,55,0); border-color: #D4AF37; }
     50%      { box-shadow: 0 0 28px rgba(212,175,55,0.4); border-color: #F4D886; }
   }
-  .hs-loader-bar-wrap { position:relative; z-index:1; width: min(320px,70vw); }
+  .hs-loader-bar-wrap { position:relative; z-index:1; width: min(320px,70vw); overflow:hidden; }
   .hs-loader-bar-track {
     width: 100%; height: 3px;
     background: rgba(255,255,255,.1); border-radius: 2px; overflow: hidden;
   }
   .hs-loader-bar-fill {
-    height: 3px; border-radius: 2px;
+    height: 3px; width: 100%; border-radius: 2px;
     background: linear-gradient(90deg,#7A2CFF,#D4AF37);
-    animation: hs-bar 1.6s ease-in-out infinite;
+    transform-origin: left center;
+    will-change: transform;
+    animation: hs-bar-t 1.6s ease-in-out infinite;
   }
-  @keyframes hs-bar {
-    0%   { width:0%;  margin-left:0; }
-    50%  { width:70%; margin-left:0; }
-    100% { width:0%;  margin-left:100%; }
+  @keyframes hs-bar-t {
+    0%   { transform: translateX(0%)   scaleX(0); }
+    50%  { transform: translateX(0%)   scaleX(0.7); }
+    100% { transform: translateX(100%) scaleX(0); }
   }
   .hs-loader-status {
     position:relative; z-index:1;
@@ -112,6 +124,7 @@ const ALL_CSS = `
     align-items: center; justify-content: center;
     gap: 0;
     font-family: 'Orbitron', monospace;
+    contain: layout style paint;
   }
   .err-topline {
     position:absolute; top:0;left:0;right:0; height:2px;
@@ -122,12 +135,16 @@ const ALL_CSS = `
     top:-80px; left:-80px; border-radius:50%;
     background:radial-gradient(circle,rgba(255,0,110,0.07) 0%,transparent 70%);
     filter:blur(60px); pointer-events:none;
+    will-change: transform;
+    transform: translateZ(0);
   }
   .err-orb2 {
     position:absolute; width:260px; height:260px;
     bottom:-60px; right:-40px; border-radius:50%;
     background:radial-gradient(circle,rgba(122,44,255,0.09) 0%,transparent 70%);
     filter:blur(50px); pointer-events:none;
+    will-change: transform;
+    transform: translateZ(0);
   }
   .err-corner { position:absolute; width:16px; height:16px; pointer-events:none; }
   .err-tl{top:16px;left:16px; border-top:1px solid rgba(255,0,110,.4); border-left:1px solid rgba(255,0,110,.4);}
@@ -143,28 +160,39 @@ const ALL_CSS = `
     border: 1px solid rgba(122,44,255,0.3);
     overflow: hidden;
     flex-shrink: 0;
+    contain: layout style paint;
+    transform: translateZ(0);
   }
   .race-road-bg {
     position:absolute; inset:0;
     background: linear-gradient(180deg, #0d0c1e 0%, #0a0918 100%);
   }
+  /* lane lines & edges: extended by one pattern-period past the box and
+     animated with transform (compositor-only) instead of background-position
+     (which forces a repaint every frame). */
   .race-lane-line {
-    position:absolute; top:0; bottom:0; width:2px;
+    position:absolute; top:-38px; bottom:-38px; width:2px;
     background: repeating-linear-gradient(180deg, rgba(212,175,55,0.35) 0px, rgba(212,175,55,0.35) 18px, transparent 18px, transparent 38px);
-    animation: lane-scroll 0.45s linear infinite;
+    animation: lane-scroll-t 0.45s linear infinite;
+    will-change: transform;
   }
-  @keyframes lane-scroll {
-    from { background-position: 0 0; }
-    to   { background-position: 0 56px; }
+  @keyframes lane-scroll-t {
+    from { transform: translate3d(0,0,0); }
+    to   { transform: translate3d(0,38px,0); }
   }
   .race-edge {
-    position:absolute; top:0; bottom:0; width:6px;
+    position:absolute; top:-24px; bottom:-24px; width:6px;
     background: linear-gradient(180deg,
       rgba(122,44,255,0.6) 0px, rgba(122,44,255,0.6) 12px,
       transparent 12px, transparent 24px
     );
     background-size: 6px 24px;
-    animation: lane-scroll 0.35s linear infinite;
+    animation: edge-scroll-t 0.35s linear infinite;
+    will-change: transform;
+  }
+  @keyframes edge-scroll-t {
+    from { transform: translate3d(0,0,0); }
+    to   { transform: translate3d(0,24px,0); }
   }
   .race-edge-l { left:0; }
   .race-edge-r { right:0; }
@@ -267,6 +295,7 @@ const ALL_CSS = `
     position:absolute; width:1px;
     background:linear-gradient(180deg,transparent,rgba(192,132,252,0.4),transparent);
     animation:spd-line 0.4s linear infinite;
+    will-change: transform;
   }
   @keyframes spd-line {
     from{transform:translateY(-100%);}
@@ -333,11 +362,13 @@ const ALL_CSS = `
 `;
 
 /* ═══════════════════════════════════════════════
-   PLAYER CAR SVG-ish CSS
+   PLAYER / OBSTACLE (memoized — they only re-render
+   when their own props actually change, not on every
+   animation frame)
 ═══════════════════════════════════════════════ */
 const OBS_COLORS = ["#ff006e", "#00f5ff", "#f59e0b", "#39ff14"];
 
-function PlayerCar() {
+const PlayerCar = memo(function PlayerCar() {
   return (
     <div className="player-car">
       <div className="car-wheel wl-tl" />
@@ -349,9 +380,9 @@ function PlayerCar() {
       <div className="car-exhaust" />
     </div>
   );
-}
+});
 
-function ObstacleCar({ color }) {
+const ObstacleCar = memo(function ObstacleCar({ color }) {
   return (
     <div className="obs-car">
       <div className="obs-wheel ow-tl" />
@@ -365,36 +396,72 @@ function ObstacleCar({ color }) {
       <div className="obs-window" />
     </div>
   );
-}
+});
 
 /* ═══════════════════════════════════════════════
    RACING GAME
+   Perf model:
+   - Obstacle positions live in a mutable ref (obstaclesDataRef),
+     not React state. Every rAF frame we move them and write the
+     new position straight to the DOM node via `transform`
+     (translate3d — GPU/compositor only, no layout, no paint
+     unless something visually changes).
+   - React state for the obstacle list (`obstacleList`) is only
+     updated when an obstacle spawns or is removed (~once a
+     second), not on every frame — this is what actually removes
+     the jank, since a 60fps setState on a list is the single
+     biggest cause of dropped frames on mobile.
+   - Score/speed HUD text is throttled to ~20 updates/sec, which
+     is visually indistinguishable from 60/sec for a counter but
+     cuts re-renders by 3x.
+   - Movement is delta-time based (not frame-count based), so
+     speed stays consistent even if the device drops frames —
+     this is what makes it *feel* smooth rather than just *be*
+     technically running, especially on lower-end phones.
+   - The player car moves via framer-motion's `x`/`y` (transform)
+     instead of `left`/`top` (layout).
 ═══════════════════════════════════════════════ */
 function RacingGame({ onRetry }) {
-  const [phase, setPhase]         = useState("idle");   // idle | playing | dead | gameover
+  const [phase, setPhase]           = useState("idle");   // idle | playing | dead | gameover
   const [playerLane, setPlayerLane] = useState(1);
-  const [obstacles, setObstacles] = useState([]);
-  const [score, setScore]         = useState(0);
-  const [bestScore, setBestScore] = useState(0);
-  const [lives, setLives]         = useState(3);
-  const [crashed, setCrashed]     = useState(false);
+  const [obstacleList, setObstacleList] = useState([]);   // [{id, lane, color}] — stable, drives DOM mount/unmount only
+  const [score, setScore]           = useState(0);
+  const [bestScore, setBestScore]   = useState(0);
+  const [lives, setLives]           = useState(3);
+  const [crashed, setCrashed]       = useState(false);
   const [frameSpeed, setFrameSpeed] = useState(BASE_SPEED);
 
-  const frameRef     = useRef(null);
-  const frameCount   = useRef(0);
-  const stateRef     = useRef({});
+  const frameRef        = useRef(null);
+  const frameCount      = useRef(0);
+  const lastTimeRef     = useRef(null);
+  const spawnAccumRef   = useRef(0);
+  const scoreAccumRef   = useRef(0);
+  const hudThrottleRef  = useRef(0);
+  const stateRef        = useRef({});
+  const obstaclesDataRef  = useRef([]);          // [{id, lane, y, color}] — source of truth for position
+  const obstacleNodeRefs  = useRef(new Map());   // id -> DOM node, for direct transform writes
 
-  // keep a ref mirror so rAF always reads fresh state
-  stateRef.current = { playerLane, obstacles, score, lives, phase, frameSpeed };
+  stateRef.current = { playerLane, lives };
+
+  const setObstacleNodeRef = useCallback((id) => (node) => {
+    if (node) obstacleNodeRefs.current.set(id, node);
+    else obstacleNodeRefs.current.delete(id);
+  }, []);
 
   const startGame = useCallback(() => {
     setPlayerLane(1);
-    setObstacles([]);
+    obstaclesDataRef.current = [];
+    obstacleNodeRefs.current.clear();
+    setObstacleList([]);
     setScore(0);
     setLives(3);
     setCrashed(false);
     setFrameSpeed(BASE_SPEED);
     frameCount.current = 0;
+    lastTimeRef.current = null;
+    spawnAccumRef.current = 0;
+    scoreAccumRef.current = 0;
+    hudThrottleRef.current = 0;
     setPhase("playing");
   }, []);
 
@@ -413,82 +480,109 @@ function RacingGame({ onRetry }) {
   useEffect(() => {
     if (phase !== "playing") {
       cancelAnimationFrame(frameRef.current);
+      lastTimeRef.current = null;
       return;
     }
 
-    const tick = () => {
-      frameCount.current += 1;
+    const tick = (timestamp) => {
+      if (lastTimeRef.current === null) lastTimeRef.current = timestamp;
+      const dtMs = Math.min(timestamp - lastTimeRef.current, MAX_DT);
+      lastTimeRef.current = timestamp;
+      const dtFactor = dtMs / FRAME_MS; // 1.0 == one 60fps frame's worth of movement
+
+      frameCount.current += dtFactor;
       const fc = frameCount.current;
       const { playerLane, lives } = stateRef.current;
       const speed = BASE_SPEED + fc * SPEED_INC;
+      const moveBy = speed * dtFactor;
 
-      setFrameSpeed(speed);
-      setScore(s => s + 1);
+      scoreAccumRef.current += dtFactor;
 
-      // spawn obstacles
-      setObstacles(prev => {
-        let next = prev.map(o => ({ ...o, y: o.y + speed }))
-                       .filter(o => o.y < TRACK_H + OBS_H);
+      // move obstacles (mutate ref directly — no re-render)
+      const data = obstaclesDataRef.current;
+      for (let i = 0; i < data.length; i++) data[i].y += moveBy;
 
-        if (fc % SPAWN_INT === 0) {
-          const usedLanes = next.filter(o => o.y < 120).map(o => o.lane);
-          const free = [0, 1, 2].filter(l => !usedLanes.includes(l));
-          if (free.length) {
-            const lane = free[Math.floor(Math.random() * free.length)];
-            next = [...next, {
-              id: fc,
-              lane,
-              y: -OBS_H,
-              color: OBS_COLORS[Math.floor(Math.random() * OBS_COLORS.length)],
-            }];
-          }
+      let filtered = data.filter(o => o.y < TRACK_H + OBS_H);
+      let listChanged = filtered.length !== data.length;
+
+      // collision check
+      const playerX = LANES[playerLane];
+      let hitId = null;
+      for (const o of filtered) {
+        const ox = LANES[o.lane];
+        if (
+          Math.abs(ox - playerX) < CAR_W * 0.8 &&
+          o.y + OBS_H > PLAYER_Y + 8 &&
+          o.y < PLAYER_Y + CAR_H - 8
+        ) {
+          hitId = o.id;
+          break;
         }
+      }
+      if (hitId !== null) {
+        filtered = filtered.filter(o => o.id !== hitId);
+        listChanged = true;
+      }
 
-        // collision check
-        const playerX = LANES[playerLane];
-        const playerYTop = PLAYER_Y;
-        const hit = next.some(o => {
-          const ox = LANES[o.lane];
-          const oy = o.y;
-          return (
-            Math.abs(ox - playerX) < CAR_W * 0.8 &&
-            oy + OBS_H > playerYTop + 8 &&
-            oy < playerYTop + CAR_H - 8
-          );
-        });
-
-        if (hit) {
-          // remove the colliding obstacle
-          const surviving = next.filter(o => {
-            const ox = LANES[o.lane];
-            const oy = o.y;
-            return !(Math.abs(ox - playerX) < CAR_W * 0.8 &&
-              oy + OBS_H > playerYTop + 8 &&
-              oy < playerYTop + CAR_H - 8);
-          });
-
-          const newLives = lives - 1;
-          setLives(newLives);
-          setCrashed(true);
-          setTimeout(() => setCrashed(false), 300);
-
-          if (newLives <= 0) {
-            setPhase("gameover");
-            setBestScore(b => Math.max(b, stateRef.current.score));
-            cancelAnimationFrame(frameRef.current);
-          } else {
-            setPhase("dead");
-            cancelAnimationFrame(frameRef.current);
-            setTimeout(() => {
-              frameCount.current = fc;
-              setPhase("playing");
-            }, 900);
-          }
-          return surviving;
+      // spawn (time-accumulated, not frame-modulo, so it stays correct under variable fps)
+      spawnAccumRef.current += dtFactor;
+      if (spawnAccumRef.current >= SPAWN_INT) {
+        spawnAccumRef.current = 0;
+        const usedLanes = filtered.filter(o => o.y < 120).map(o => o.lane);
+        const free = [0, 1, 2].filter(l => !usedLanes.includes(l));
+        if (free.length) {
+          const lane = free[Math.floor(Math.random() * free.length)];
+          filtered = [...filtered, {
+            id: Math.round(fc * 1000) + lane,
+            lane, y: -OBS_H,
+            color: OBS_COLORS[Math.floor(Math.random() * OBS_COLORS.length)],
+          }];
+          listChanged = true;
         }
+      }
 
-        return next;
-      });
+      obstaclesDataRef.current = filtered;
+
+      // write positions straight to the DOM — GPU compositor only, no React render
+      for (const o of filtered) {
+        const node = obstacleNodeRefs.current.get(o.id);
+        if (node) node.style.transform = `translate3d(${LANES[o.lane]}px, ${o.y}px, 0)`;
+      }
+
+      // only touch React state for the list when something mounted/unmounted
+      if (listChanged) {
+        setObstacleList(filtered.map(o => ({ id: o.id, lane: o.lane, color: o.color })));
+      }
+
+      // throttle HUD number updates (~20/sec, imperceptible vs 60/sec for a counter)
+      hudThrottleRef.current += dtMs;
+      if (hudThrottleRef.current >= HUD_THROTTLE_MS) {
+        hudThrottleRef.current = 0;
+        setScore(Math.floor(scoreAccumRef.current));
+        setFrameSpeed(speed);
+      }
+
+      if (hitId !== null) {
+        const newLives = lives - 1;
+        setLives(newLives);
+        setCrashed(true);
+        setTimeout(() => setCrashed(false), 300);
+
+        if (newLives <= 0) {
+          setPhase("gameover");
+          setBestScore(b => Math.max(b, Math.floor(scoreAccumRef.current)));
+          cancelAnimationFrame(frameRef.current);
+          return;
+        } else {
+          setPhase("dead");
+          cancelAnimationFrame(frameRef.current);
+          setTimeout(() => {
+            lastTimeRef.current = null;
+            setPhase("playing");
+          }, 900);
+          return;
+        }
+      }
 
       frameRef.current = requestAnimationFrame(tick);
     };
@@ -561,17 +655,30 @@ function RacingGame({ onRetry }) {
           </div>
         </div>
 
-        {/* obstacles */}
-        {obstacles.map(o => (
-          <div key={o.id} style={{ position: "absolute", left: LANES[o.lane], top: o.y }}>
-            <ObstacleCar color={o.color} />
-          </div>
-        ))}
+        {/* obstacles — position is set imperatively in the game loop via ref;
+            the inline transform below only matters for the initial mount frame */}
+        {obstacleList.map(o => {
+          const live = obstaclesDataRef.current.find(d => d.id === o.id);
+          const y = live ? live.y : -OBS_H;
+          return (
+            <div
+              key={o.id}
+              ref={setObstacleNodeRef(o.id)}
+              style={{
+                position: "absolute", left: 0, top: 0,
+                transform: `translate3d(${LANES[o.lane]}px, ${y}px, 0)`,
+                willChange: "transform",
+              }}
+            >
+              <ObstacleCar color={o.color} />
+            </div>
+          );
+        })}
 
         {/* player */}
         <motion.div
-          style={{ position: "absolute", top: PLAYER_Y }}
-          animate={{ left: LANES[playerLane] }}
+          style={{ position: "absolute", top: 0, left: 0, willChange: "transform" }}
+          animate={{ x: LANES[playerLane], y: PLAYER_Y }}
           transition={{ type: "spring", stiffness: 380, damping: 28 }}
         >
           <motion.div
@@ -670,10 +777,6 @@ function RacingGame({ onRetry }) {
 
       {/* key hints */}
       <div className="key-hints">
-        {/* <div className="key-cap">◀</div>
-        <div className="key-sep">LANE</div>
-        <div className="key-cap">▶</div>
-        <div className="key-sep">·</div> */}
         <div style={{ fontFamily:"'Orbitron',monospace", fontSize:8, color:"rgba(185,194,217,0.35)", letterSpacing:2 }}>
           SWIPE ON MOBILE
         </div>

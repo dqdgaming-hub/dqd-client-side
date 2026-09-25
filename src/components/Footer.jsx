@@ -125,8 +125,8 @@ const SOCIAL = [
   { label: "YouTube",    Icon: YoutubeIcon,   url: "https://www.youtube.com/@DQDGamingHub" },
   { label: "Instagram",  Icon: InstagramIcon, url: "https://www.instagram.com/_dqd_gaming_hub/?hl=en" },
   { label: "Facebook",   Icon: FacebookIcon,  url: "https://www.facebook.com/p/DQD-Gaming-Hub-61575729481294/" },
-  { label: "Website",    Icon: GlobeIcon,     url: "https://www.dqd.com" },
-  { label: "Email",      Icon: MailIcon,      url: "mailto:info@dqd.com" },
+  { label: "Website",    Icon: GlobeIcon,     url: "https://www.dqdgaming.com" },
+  { label: "Email",      Icon: MailIcon,      url: "mailto:dqdgaminghub3003@gmail.com" },
 ];
 
 // Dashboard section scroll targets — IDs match the id attributes added to UserDashboard

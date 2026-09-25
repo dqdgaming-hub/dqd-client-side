@@ -26,7 +26,7 @@ import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
  *     "sign-in required" overlay, then redirects to signInUrl.
  */
 
-const BASE_URL = "http://localhost:8000"; // change to your API base URL
+const BASE_URL = "https://api.dqdgaming.com"; // change to your API base URL
 const MOBILE_BREAKPOINT = 640;
 const AUTOPLAY_MS = 5200;
 const PARTICLE_COUNT = 26;

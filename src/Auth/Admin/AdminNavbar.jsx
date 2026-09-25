@@ -661,7 +661,7 @@ export default function AdminNavbar() {
           <div className="adm-dropdown" onClick={(e) => e.stopPropagation()}>
             <div className="adm-dropdown-header">
               <strong>{getDisplayName(navbarUser)}</strong>
-              <small>{navbarUser?.email || "admin@dqd.com"}</small>
+              <small>{navbarUser?.email || "dqdgaminghub3003@gmail.com"}</small>
             </div>
 
             <button className="adm-dropdown-item" type="button" onClick={handleEditProfile}>

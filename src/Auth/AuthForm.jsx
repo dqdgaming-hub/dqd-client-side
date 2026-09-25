@@ -1,21 +1,19 @@
-import { Fragment, useState, useRef, useEffect, useCallback } from "react";
+import { Fragment, useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useLocation } from "react-router-dom";
 import { authApi, getTerms   } from "../api/client";
 import TermsModal from "./TermsModal";
 
-/* ── Module-level GSI flag ── */
-let _googleSDKInitialized = false;
-
 /* ── SDK loaders ── */
 function loadGoogleSDK() {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     if (window.google?.accounts) return resolve(window.google.accounts);
     const existing = document.querySelector('script[src*="accounts.google.com/gsi"]');
     if (existing) { existing.addEventListener("load", () => resolve(window.google.accounts)); return; }
     const s = document.createElement("script");
     s.src = "https://accounts.google.com/gsi/client"; s.async = true; s.defer = true;
     s.onload = () => resolve(window.google.accounts);
+    s.onerror = () => reject(new Error("Google sign-in could not be loaded."));
     document.head.appendChild(s);
   });
 }
@@ -103,8 +101,12 @@ export default function AuthForm() {
   const location = useLocation();
 
   const googleAccountsRef = useRef(null);
-  const googleButtonRef   = useRef(null);
-  const doSwitchRef       = useRef(null);
+  const googleCallbackRef = useRef(null);
+  const googleButtonRef = useRef(null);
+  const doSwitchRef = useRef(null);
+  const termsIdRef = useRef(null);
+
+  const [googleReady, setGoogleReady] = useState(false);
 
   const [signupForm, setSignupForm] = useState({
     first_name: "", last_name: "", email: "", phone: "",
@@ -119,6 +121,10 @@ export default function AuthForm() {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const [termsId, setTermsId] = useState(null);
+
+  useEffect(() => {
+    termsIdRef.current = termsId;
+  }, [termsId]);
 
   /* ── Ticker items for mobile ── */
   const tickerItems = [
@@ -158,59 +164,134 @@ useEffect(() => {
     if (token) navigate(role === "admin" ? "/admin/dashboard" : "/user/dashboard", { replace: true });
   }, [navigate]);
 
-  /* ── Google SDK init ── */
+  /* ── Google credential handler ── */
+  const handleGoogleCredential = useCallback(async (response) => {
+    if (!response?.credential) {
+      setError("Google sign-in was cancelled.");
+      return;
+    }
+
+    if (googleCallbackRef.current) return;
+    googleCallbackRef.current = true;
+
+    try {
+      setLoading(true);
+      setError("");
+
+      const data = await authApi.googleLogin(response.credential, {
+        accept_terms: true,
+        terms_id: termsIdRef.current,
+      });
+
+      persistAuth(data);
+
+      if (data.is_new) {
+        setSuccess("Account created! Welcome aboard!");
+      }
+
+      navigate(
+        getAuthRedirect(
+          data,
+          location.state?.from?.pathname
+        ),
+        { replace: true }
+      );
+    } catch (err) {
+      const detail = err.response?.data?.detail || "";
+
+      if (detail.toLowerCase().includes("exist")) {
+        doSwitchRef.current?.(false);
+        setError(
+          "An account with this Google address already exists. Please sign in."
+        );
+      } else {
+        setError(detail || "Google sign-in failed.");
+      }
+    } finally {
+      setLoading(false);
+      googleCallbackRef.current = false;
+    }
+  }, [navigate, location.state?.from?.pathname]);
+
+  const handleGoogleCredentialRef = useRef(handleGoogleCredential);
+
+  useEffect(() => {
+    handleGoogleCredentialRef.current = handleGoogleCredential;
+  }, [handleGoogleCredential]);
+
+  /* ── Google Identity Services ──
+     Use Google's actual Sign in with Google button.
+     No One Tap prompt, no hidden iframe click, and no login_uri. */
   useEffect(() => {
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-    if (!clientId) return;
-    loadGoogleSDK().then((accounts) => {
-      googleAccountsRef.current = accounts;
-      if (!_googleSDKInitialized) {
+
+    if (!clientId) {
+      setError("Google client ID is not configured.");
+      return;
+    }
+
+    let cancelled = false;
+
+    loadGoogleSDK()
+      .then((accounts) => {
+        if (cancelled) return;
+
+        googleAccountsRef.current = accounts;
+
         accounts.id.initialize({
           client_id: clientId,
-          use_fedcm_for_prompt: false,
-          callback: async (response) => {
-            if (!response.credential) { setError("Google sign-in was cancelled."); return; }
-            try {
-              setLoading(true); setError("");
-              setAcceptedTerms(true);
-              const data = await authApi.googleLogin(response.credential, {
-      accept_terms: true,
-      terms_id: termsId,
-    });
-              persistAuth(data);
-              if (data.is_new) setSuccess("Account created! Welcome aboard!");
-              navigate(getAuthRedirect(data, location.state?.from?.pathname), { replace: true });
-            } catch (err) {
-              const detail = err.response?.data?.detail || "";
-              if (detail.toLowerCase().includes("exist")) {
-                doSwitchRef.current?.(false);
-                setError("An account with this Google address already exists. Please sign in.");
-              } else { setError(detail || "Google sign-in failed."); }
-            } finally { setLoading(false); }
-          },
+          callback: (response) =>
+            handleGoogleCredentialRef.current(response),
+          context: "use",
+          ux_mode: "popup",
+          cancel_on_tap_outside: false,
+          auto_select: false,
+          use_fedcm_for_button: true,
         });
-        if (googleButtonRef.current) {
-          accounts.id.renderButton(googleButtonRef.current, {
-            theme: "outline",
-            size: "large",
-            type: "standard",
-            shape: "rectangular",
-            text: "continue_with",
-            width: 240,
-          });
-        }
-        _googleSDKInitialized = true;
-      }
-    });
-  }, [location.state?.from?.pathname, navigate]);
 
-  /* ── Google custom button handler ── */
-  const handleGoogleAuth = useCallback(() => {
-    setError("");
-    const googleBtn = googleButtonRef.current?.querySelector('div[role="button"], iframe');
-    if (googleBtn) { googleBtn.click(); return; }
-    setError("Google sign-in not ready yet.");
+        setGoogleReady(true);
+      })
+      .catch((err) => {
+        console.error("Google SDK initialization failed:", err);
+
+        if (!cancelled) {
+          setError("Google sign-in could not be loaded.");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  /* ── Render Google's real Sign-In button ── */
+  useEffect(() => {
+    const accounts = googleAccountsRef.current;
+    const container = googleButtonRef.current;
+
+    if (!googleReady || !accounts?.id || !container) {
+      return;
+    }
+
+    container.innerHTML = "";
+
+    const availableWidth = Math.floor(container.getBoundingClientRect().width || 340);
+    const buttonWidth = Math.min(340, Math.max(220, availableWidth));
+
+    accounts.id.renderButton(container, {
+      type: "standard",
+      theme: "filled_black",
+      size: "large",
+      text: isSignIn ? "signin_with" : "signup_with",
+      shape: "rectangular",
+      logo_alignment: "left",
+      width: buttonWidth,
+    });
+
+    return () => {
+      container.innerHTML = "";
+    };
+  }, [googleReady, isSignIn]);
 
   /* ── Panel animation state ── */
   const [infoPanelAnim, setInfoPanelAnim] = useState("");
@@ -357,8 +438,26 @@ const handleForgotPassword = () => {
 
   const clampStep = (step, max) => Math.max(0, Math.min(max, step));
   const goSignupStep = (step) => setSignupStep((current) => clampStep(typeof step === "function" ? step(current) : step, signupSteps.length - 1));
+  /* ── Stable particle set: generate once, not on every keystroke ── */
+  const particles = useMemo(() => {
+    const count = typeof window !== "undefined" && window.innerWidth <= 820 ? 10 : 18;
+
+    return Array.from({ length: count }, (_, i) => {
+      const isCyan = Math.random() > 0.4;
+      return {
+        id: i,
+        left: `${Math.random() * 100}%`,
+        top: `${Math.random() * 100}%`,
+        size: `${3 + Math.random() * 3}px`,
+        color: isCyan ? "rgba(0,255,225,0.42)" : "rgba(255,0,110,0.38)",
+        duration: `${9 + Math.random() * 8}s`,
+        delay: `-${Math.random() * 10}s`,
+      };
+    });
+  }, []);
+
   /* ── CSS ── */
-  const css = `
+  const css = useMemo(() => `
     @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&display=swap');
 
     /* ── Cyberpunk tokens ── */
@@ -379,10 +478,32 @@ const handleForgotPassword = () => {
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
     /* ── Root ── */
+    html, body, #root {
+      min-height: 100%;
+    }
+
+    html, body, #root {
+      width: 100%;
+      min-height: 100%;
+    }
+
+    body {
+      margin: 0;
+      overflow-x: clip;
+      overflow-y: auto;
+      overscroll-behavior-x: none;
+      -webkit-overflow-scrolling: touch;
+    }
+
     .ar {
       font-family: 'Share Tech Mono', monospace;
-      min-height: 100vh; display: flex; align-items: center; justify-content: center;
-      background: var(--cp-void); padding: 2rem 1rem; overflow: hidden; position: relative;
+      min-height: 100vh;
+      width: 100%;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--cp-void);
+      padding: 2rem 1rem;
+      overflow: visible;
+      position: relative;
     }
 
     /* ── Background ── */
@@ -643,6 +764,33 @@ const handleForgotPassword = () => {
       box-shadow: 0 0 18px rgba(0,255,225,0.08) inset;
     }
     @keyframes alertIn { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: translateX(0); } }
+
+    /* ── Google button ── */
+    .ar-google-socials {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 12px;
+      min-height: 40px;
+    }
+
+    .ar-google-button {
+      width: 100%;
+      min-height: 40px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+    }
+
+    .ar-google-button > div {
+      max-width: 100%;
+    }
+
+    .ar-google-button iframe {
+      max-width: 100% !important;
+    }
 
     /* ── Social buttons ── */
     .ar-socials { display: flex; gap: 8px; margin-bottom: 12px; width: 100%; }
@@ -1174,8 +1322,8 @@ const handleForgotPassword = () => {
         padding: 0 16px;
         height: 54px;
         background: rgba(3,3,14,0.96);
-        backdrop-filter: blur(24px);
-        -webkit-backdrop-filter: blur(24px);
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
         position: sticky;
         top: 0;
         z-index: 50;
@@ -1602,33 +1750,32 @@ const handleForgotPassword = () => {
       .ar-bg::before {
         background:
           conic-gradient(from 90deg at 50% 50%, transparent 0deg, rgba(0,255,225,0.14) 38deg, transparent 82deg, rgba(255,0,110,0.12) 145deg, transparent 220deg, rgba(245,255,0,0.07) 300deg, transparent 360deg);
-        filter: blur(44px);
-        opacity: 0.7;
-        animation: mobileAuroraSpin 18s linear infinite;
+        filter: blur(28px);
+        opacity: 0.34;
+        animation: none;
       }
       .ar-bg::after {
         background-image:
           linear-gradient(115deg, transparent 0 42%, rgba(0,255,225,0.08) 42% 43%, transparent 43% 100%),
           linear-gradient(65deg, transparent 0 58%, rgba(255,0,110,0.075) 58% 59%, transparent 59% 100%);
         background-size: 170px 170px;
-        opacity: 0.58;
-        animation: mobileCircuitDrift 13s linear infinite;
+        opacity: 0.26;
+        animation: none;
       }
       .ar-grid {
         background-size: 34px 34px;
-        transform: perspective(420px) rotateX(58deg) translateY(18%);
-        transform-origin: bottom;
-        opacity: 0.54;
-        animation: mobileGridRush 8s linear infinite;
+        transform: none;
+        transform-origin: center;
+        opacity: 0.22;
+        animation: none;
       }
       .ar-scanlines {
-        opacity: 0.45;
-        mix-blend-mode: screen;
+        display: none;
       }
       .ar-particle {
         border-radius: 999px;
         clip-path: none;
-        filter: blur(0.2px) drop-shadow(0 0 8px currentColor);
+        filter: none;
         animation-name: mobileParticleLift;
       }
 
@@ -1846,14 +1993,14 @@ const handleForgotPassword = () => {
         background:
           linear-gradient(150deg, rgba(255,255,255,0.105), rgba(255,255,255,0.025)),
           rgba(4,6,18,0.78);
-        backdrop-filter: blur(22px) saturate(1.22);
-        -webkit-backdrop-filter: blur(22px) saturate(1.22);
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
         box-shadow:
           0 24px 70px rgba(0,0,0,0.58),
           0 0 0 1px rgba(0,255,225,0.05),
           inset 0 1px 0 rgba(255,255,255,0.13),
           inset 0 -32px 80px rgba(0,255,225,0.025);
-        animation: mobileCardFloat 5s ease-in-out infinite;
+        animation: none;
       }
       .ar-form::before {
         top: 10px;
@@ -2057,6 +2204,79 @@ const handleForgotPassword = () => {
       }
     }
 
+    /* ── MOBILE PERFORMANCE + SMOOTH SCROLLING ── */
+    @media (max-width: 820px) {
+      html,
+      body,
+      #root {
+        min-height: 100%;
+        height: auto;
+      }
+
+      body {
+        overflow-x: clip;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior-y: auto;
+      }
+
+      .ar {
+        min-height: 100svh;
+        height: auto;
+        padding: 0 0 calc(28px + env(safe-area-inset-bottom, 0px));
+        align-items: stretch;
+        justify-content: stretch;
+        overflow: visible;
+        touch-action: pan-y;
+        overscroll-behavior-y: auto;
+      }
+
+      .ar-scene {
+        min-height: auto;
+        height: auto;
+        overflow: visible;
+        contain: none;
+      }
+
+      .ar-form-panel,
+      .ar-form,
+      .ar-step-card {
+        will-change: auto;
+      }
+
+      .ar-form {
+        transform: translateZ(0);
+      }
+
+      .ar-mobile-header {
+        position: sticky;
+        top: env(safe-area-inset-top, 0px);
+      }
+
+      .ar-mob-ticker-inner {
+        will-change: transform;
+      }
+
+      .ar-mob-hero-title,
+      .ar-mh-logo-img,
+      .ar-mob-logo-ring::before,
+      .ar-mob-logo-ring::after {
+        animation-duration: 5s;
+      }
+
+      .ar-form-panel,
+      .ar-step-card {
+        -webkit-backface-visibility: hidden;
+        backface-visibility: hidden;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .ar-mob-ticker-inner {
+          animation: none !important;
+        }
+      }
+    }
+
     /* ── SMALL MOBILE (≤ 480px) ── */
     @media (max-width: 480px) {
       .ar-form-panel  { padding: 16px 12px 48px; }
@@ -2081,7 +2301,7 @@ const handleForgotPassword = () => {
       .ar-title         { font-size: 1.08rem; }
       .ar-mob-stat-val  { font-size: 0.72rem; }
     }
-  `;
+  `, []);
 
   return (
     <>
@@ -2089,26 +2309,22 @@ const handleForgotPassword = () => {
       <div className="ar-bg" />
       <div className="ar-scanlines" />
       <div className="ar-grid" />
-      <div
-        ref={googleButtonRef}
-        style={{ position: "fixed", left: "-9999px", top: "-9999px", width: 240, height: 44, overflow: "hidden" }}
-        aria-hidden="true"
-      />
       <div className="ar-particles" aria-hidden="true">
-        {Array.from({ length: 24 }).map((_, i) => {
-          const isCyan = Math.random() > 0.4;
-          return (
-            <div key={i} className="ar-particle" style={{
-              left: `${Math.random() * 100}%`,
-              top:  `${Math.random() * 100}%`,
-              width:  `${3 + Math.random() * 4}px`,
-              height: `${3 + Math.random() * 4}px`,
-              "--pc":  isCyan ? "rgba(0,255,225,0.55)" : "rgba(255,0,110,0.5)",
-              "--dur": `${6 + Math.random() * 10}s`,
-              "--del": `-${Math.random() * 10}s`,
-            }} />
-          );
-        })}
+        {particles.map((particle) => (
+          <div
+            key={particle.id}
+            className="ar-particle"
+            style={{
+              left: particle.left,
+              top: particle.top,
+              width: particle.size,
+              height: particle.size,
+              "--pc": particle.color,
+              "--dur": particle.duration,
+              "--del": particle.delay,
+            }}
+          />
+        ))}
       </div>
 
       <div className="ar">
@@ -2264,10 +2480,12 @@ const handleForgotPassword = () => {
                   {error   && <div className="ar-alert error">  {I.alert} {error}   </div>}
                   {success && <div className="ar-alert success">{I.check} {success} </div>}
 
-                  <div className="ar-socials">
-                    <button className="ar-social-btn" onClick={handleGoogleAuth} disabled={loading} type="button">
-                      <span className="ar-social-btn-inner">{I.google} Google</span>
-                    </button>
+                  <div className="ar-socials ar-google-socials">
+                    <div
+                      ref={googleButtonRef}
+                      className="ar-google-button"
+                      aria-label="Continue with Google"
+                    />
                   </div>
                   <div className="ar-divider">// or use email //</div>
 
@@ -2484,10 +2702,12 @@ const handleForgotPassword = () => {
                   {error   && <div className="ar-alert error">  {I.alert} {error}   </div>}
                   {success && <div className="ar-alert success">{I.check} {success} </div>}
 
-                  <div className="ar-socials">
-                    <button className="ar-social-btn" onClick={handleGoogleAuth} disabled={loading} type="button">
-                      <span className="ar-social-btn-inner">{I.google} Google</span>
-                    </button>
+                  <div className="ar-socials ar-google-socials">
+                    <div
+                      ref={googleButtonRef}
+                      className="ar-google-button"
+                      aria-label="Continue with Google"
+                    />
                   </div>
                   <div className="ar-divider">// or use email //</div>
 

@@ -200,6 +200,17 @@ export const authApi = {
     return data
   },
 
+  googleCodeLogin: async (code, redirect_uri) => {
+    const { data } = await apiClient.post(
+      '/auth/social/google/code/',
+      { code, redirect_uri },
+      { _skipAuth: true },
+    )
+    tokenStorage.set(data.access, data.refresh)
+    apiClient.defaults.headers.common.Authorization = `Bearer ${data.access}`
+    return data
+  },
+
   facebookLogin: async (access_token) => {
     const { data } = await apiClient.post(
       '/auth/social/facebook/',

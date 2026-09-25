@@ -7,6 +7,7 @@ import {
   AnimatePresence,
 } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
+import { Fragment } from "react";
 import { useNavigate } from "react-router-dom";
 import { Gamepad2, Zap, ChevronRight, Star, Shield, Trophy } from "lucide-react";
 
@@ -776,7 +777,7 @@ export default function AboutSection({ stats = DEFAULT_STATS }) {
               transition={{ type: "spring", stiffness: 180, damping: 18, delay: 0.4 }}
             >
               {statItems.map((item, i) => (
-                <>
+                <Fragment key={item.label}>
                   <StatBarItem key={item.label} {...item} inView={statInView} index={i} />
                   {i < statItems.length - 1 && (
                     <motion.div
@@ -787,7 +788,7 @@ export default function AboutSection({ stats = DEFAULT_STATS }) {
                       transition={{ duration: 0.5, delay: 0.5 + i * 0.1 }}
                     />
                   )}
-                </>
+                </Fragment>
               ))}
             </motion.div>
           </motion.div>
