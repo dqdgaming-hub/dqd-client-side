@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
 import { getTerms } from "../api/client";
 
 /* ------------------------------------------------------------------ */
@@ -241,46 +240,6 @@ function normalizeTerms(remote) {
     return null;
 }
 
-/* ------------------------------------------------------------------ */
-/*  Motion variants                                                    */
-/* ------------------------------------------------------------------ */
-
-const backdropVariants = {
-    hidden: { opacity: 0 },
-    visible: { opacity: 1, transition: { duration: 0.25, ease: "easeOut" } },
-    exit: { opacity: 0, transition: { duration: 0.2, ease: "easeIn" } },
-};
-
-const modalVariants = {
-    hidden: { opacity: 0, y: 40, scale: 0.94 },
-    visible: {
-        opacity: 1,
-        y: 0,
-        scale: 1,
-        transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] },
-    },
-    exit: {
-        opacity: 0,
-        y: 20,
-        scale: 0.96,
-        transition: { duration: 0.2, ease: "easeIn" },
-    },
-};
-
-const lineVariants = {
-    hidden: { scaleX: 0 },
-    visible: { scaleX: 1, transition: { duration: 0.6, ease: "easeOut", delay: 0.15 } },
-};
-
-const sectionVariants = {
-    hidden: { opacity: 0, y: 14 },
-    visible: (i = 0) => ({
-        opacity: 1,
-        y: 0,
-        transition: { duration: 0.35, ease: "easeOut", delay: 0.06 + Math.min(i, 8) * 0.045 },
-    }),
-};
-
 const Icon = ({ name, size = 18 }) => (
     <svg
         width={size}
@@ -306,7 +265,7 @@ const TermsModal = ({ open, onClose }) => {
     const sectionRefs = useRef([]);
     const progressFillRef = useRef(null);
     const activeSectionRef = useRef(0);
-    const rafRef = useRef(null);
+    const tickingRef = useRef(false);
 
     const data = useMemo(() => terms || TERMS_DATA, [terms]);
 
@@ -339,13 +298,7 @@ const TermsModal = ({ open, onClose }) => {
                 console.error("Failed to load terms:", err);
                 if (!cancelled) setUsingFallback(true);
             } finally {
-                if (!cancelled) {
-                    // Small deliberate delay so the "decrypting" state reads as
-                    // an intentional beat rather than a flash.
-                    setTimeout(() => {
-                        if (!cancelled) setLoading(false);
-                    }, 450);
-                }
+                if (!cancelled) setLoading(false);
             }
         };
 
@@ -357,15 +310,16 @@ const TermsModal = ({ open, onClose }) => {
     }, [open]);
 
     // Track scroll position to drive the level-select rail + progress bar.
-    // The progress bar is written straight to the DOM (no state) so it stays
-    // buttery at 60fps; React only re-renders when the active clause changes.
+    // Runs synchronously off the scroll event (throttled with a plain flag,
+    // no rAF smoothing) so the progress bar snaps to position immediately
+    // instead of trailing behind the scroll.
     useEffect(() => {
         if (loading) return;
         const el = bodyRef.current;
         if (!el) return;
 
         const measure = () => {
-            rafRef.current = null;
+            tickingRef.current = false;
 
             const { scrollTop, scrollHeight, clientHeight } = el;
             const max = scrollHeight - clientHeight;
@@ -375,11 +329,15 @@ const TermsModal = ({ open, onClose }) => {
             }
 
             let current = 0;
-            sectionRefs.current.forEach((node, i) => {
+            const refs = sectionRefs.current;
+            for (let i = 0; i < refs.length; i++) {
+                const node = refs[i];
                 if (node && node.offsetTop - el.offsetTop <= scrollTop + 80) {
                     current = i;
+                } else {
+                    break;
                 }
-            });
+            }
             if (current !== activeSectionRef.current) {
                 activeSectionRef.current = current;
                 setActiveSection(current);
@@ -387,8 +345,9 @@ const TermsModal = ({ open, onClose }) => {
         };
 
         const handleScroll = () => {
-            if (rafRef.current == null) {
-                rafRef.current = requestAnimationFrame(measure);
+            if (!tickingRef.current) {
+                tickingRef.current = true;
+                measure();
             }
         };
 
@@ -396,7 +355,6 @@ const TermsModal = ({ open, onClose }) => {
         measure();
         return () => {
             el.removeEventListener("scroll", handleScroll);
-            if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
         };
     }, [loading, data]);
 
@@ -404,8 +362,10 @@ const TermsModal = ({ open, onClose }) => {
         const node = sectionRefs.current[i];
         const el = bodyRef.current;
         if (!node || !el) return;
-        el.scrollTo({ top: node.offsetTop - el.offsetTop - 12, behavior: "smooth" });
+        el.scrollTop = node.offsetTop - el.offsetTop - 12;
     };
+
+    if (!open) return null;
 
     return (
         <>
@@ -423,6 +383,7 @@ const TermsModal = ({ open, onClose }) => {
                     z-index: 9999;
                     padding: 20px;
                     font-family: 'Rajdhani', sans-serif;
+                    box-sizing: border-box;
                 }
 
                 .tm-modal-wrap {
@@ -435,23 +396,18 @@ const TermsModal = ({ open, onClose }) => {
                     position: absolute;
                     inset: -2px;
                     background: linear-gradient(135deg, #00f0ff, #ff00c8, #ffb800, #00f0ff);
-                    background-size: 300% 300%;
                     clip-path: polygon(24px 0, 100% 0, 100% calc(100% - 24px), calc(100% - 24px) 100%, 0 100%, 0 24px);
                     filter: blur(10px);
                     opacity: 0.55;
-                    animation: tm-hue 6s linear infinite;
                     pointer-events: none;
-                }
-
-                @keyframes tm-hue {
-                    0% { background-position: 0% 50%; }
-                    50% { background-position: 100% 50%; }
-                    100% { background-position: 0% 50%; }
                 }
 
                 .terms-modal {
                     position: relative;
                     width: 100%;
+                    max-height: 90vh;
+                    display: flex;
+                    flex-direction: column;
                     background:
                         linear-gradient(160deg, rgba(10,12,20,0.97), rgba(6,7,12,0.98)),
                         repeating-linear-gradient(0deg, rgba(0,240,255,0.025) 0px, rgba(0,240,255,0.025) 1px, transparent 1px, transparent 3px);
@@ -476,14 +432,17 @@ const TermsModal = ({ open, onClose }) => {
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
+                    gap: 12px;
                     padding: 22px 28px 18px;
                     position: relative;
+                    flex: 0 0 auto;
                 }
 
                 .tm-title-wrap {
                     display: flex;
                     flex-direction: column;
                     gap: 4px;
+                    min-width: 0;
                 }
 
                 .tm-eyebrow {
@@ -504,6 +463,7 @@ const TermsModal = ({ open, onClose }) => {
                     border-radius: 50%;
                     background: #ff00c8;
                     box-shadow: 0 0 8px #ff00c8;
+                    flex: 0 0 auto;
                 }
 
                 .modal-header h2 {
@@ -514,12 +474,16 @@ const TermsModal = ({ open, onClose }) => {
                     color: #eafcff;
                     margin: 0;
                     text-shadow: 0 0 12px rgba(0, 240, 255, 0.5);
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
                 }
 
                 .tm-close-btn {
                     position: relative;
                     width: 38px;
                     height: 38px;
+                    flex: 0 0 auto;
                     display: flex;
                     align-items: center;
                     justify-content: center;
@@ -529,14 +493,17 @@ const TermsModal = ({ open, onClose }) => {
                     color: #ff8fe6;
                     cursor: pointer;
                     font-size: 16px;
-                    transition: color 0.2s ease;
+                }
+                .tm-close-btn:hover {
+                    background: rgba(255, 0, 200, 0.18);
+                    box-shadow: 0 0 16px rgba(255, 0, 200, 0.5);
                 }
 
                 .tm-header-line {
                     height: 1px;
                     margin: 0 28px;
                     background: linear-gradient(90deg, transparent, #00f0ff, #ff00c8, transparent);
-                    transform-origin: left center;
+                    flex: 0 0 auto;
                 }
 
                 /* progress rail under the header line */
@@ -546,6 +513,7 @@ const TermsModal = ({ open, onClose }) => {
                     background: rgba(255,255,255,0.06);
                     position: relative;
                     overflow: hidden;
+                    flex: 0 0 auto;
                 }
                 .tm-progress-fill {
                     position: absolute;
@@ -553,8 +521,6 @@ const TermsModal = ({ open, onClose }) => {
                     width: 0%;
                     background: linear-gradient(90deg, #00f0ff, #ff00c8);
                     box-shadow: 0 0 10px rgba(0,240,255,0.6);
-                    transition: width 0.08s ease-out;
-                    will-change: width;
                 }
 
                 /* subtle offline/fallback indicator */
@@ -566,21 +532,30 @@ const TermsModal = ({ open, onClose }) => {
                     text-transform: uppercase;
                     color: #ffb800;
                     opacity: 0.75;
+                    flex: 0 0 auto;
+                }
+
+                .tm-content-wrap {
+                    display: flex;
+                    flex-direction: column;
+                    min-height: 0;
+                    flex: 1 1 auto;
                 }
 
                 .tm-layout {
                     display: grid;
                     grid-template-columns: 200px 1fr;
                     gap: 0;
+                    min-height: 0;
+                    flex: 1 1 auto;
                 }
 
                 /* --- level-select rail --- */
                 .tm-rail {
                     padding: 18px 10px 18px 28px;
-                    max-height: 58vh;
+                    max-height: 100%;
                     overflow-y: auto;
                     overscroll-behavior: contain;
-                    scroll-behavior: smooth;
                     -webkit-overflow-scrolling: touch;
                     border-right: 1px solid rgba(0,240,255,0.15);
                     scrollbar-width: none;
@@ -601,7 +576,6 @@ const TermsModal = ({ open, onClose }) => {
                     text-align: left;
                     color: #7de8ff;
                     opacity: 0.55;
-                    transition: opacity 0.2s ease, border-color 0.2s ease, background 0.2s ease;
                 }
                 .tm-rail-item:hover {
                     opacity: 0.9;
@@ -633,14 +607,14 @@ const TermsModal = ({ open, onClose }) => {
                 }
 
                 .modal-body {
-                    max-height: 58vh;
+                    max-height: 100%;
                     overflow-y: auto;
                     overscroll-behavior: contain;
-                    scroll-behavior: smooth;
                     -webkit-overflow-scrolling: touch;
                     padding: 20px 28px 8px;
                     scrollbar-width: thin;
                     scrollbar-color: #00f0ff33 transparent;
+                    box-sizing: border-box;
                 }
 
                 .modal-body::-webkit-scrollbar { width: 6px; }
@@ -803,6 +777,7 @@ const TermsModal = ({ open, onClose }) => {
                     align-items: center;
                     gap: 16px;
                     border-top: 1px solid rgba(0,240,255,0.12);
+                    flex: 0 0 auto;
                 }
 
                 .tm-footer-note {
@@ -811,6 +786,10 @@ const TermsModal = ({ open, onClose }) => {
                     letter-spacing: 1px;
                     color: #5c7d84;
                     text-transform: uppercase;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                    min-width: 0;
                 }
 
                 .tm-close-cta {
@@ -829,6 +808,9 @@ const TermsModal = ({ open, onClose }) => {
                     overflow: hidden;
                     flex: 0 0 auto;
                 }
+                .tm-close-cta:hover {
+                    box-shadow: 0 0 22px rgba(0,240,255,0.55);
+                }
 
                 .tm-loading-wrap {
                     display: flex;
@@ -837,6 +819,7 @@ const TermsModal = ({ open, onClose }) => {
                     justify-content: center;
                     padding: 60px 20px;
                     gap: 18px;
+                    flex: 1 1 auto;
                 }
 
                 .tm-loading-text {
@@ -853,22 +836,28 @@ const TermsModal = ({ open, onClose }) => {
                     border-radius: 2px;
                 }
 
-                @media (prefers-reduced-motion: reduce) {
-                    .modal-body, .tm-rail { scroll-behavior: auto; }
-                    .tm-modal-glow { animation: none; }
-                    .tm-progress-fill { transition: none; }
-                }
-
+                /* ═══ RESPONSIVE ═══ */
                 @media (max-width: 720px) {
+                    .tm-backdrop { padding: 0; align-items: flex-end; }
+                    .tm-modal-wrap { width: 100%; }
+                    .terms-modal {
+                        max-height: 92vh;
+                        clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px);
+                    }
+                    .modal-header { padding: 18px 18px 14px; }
+                    .modal-header h2 { font-size: 18px; }
+                    .tm-header-line, .tm-progress-track, .tm-fallback-note { margin-left: 18px; margin-right: 18px; }
+
                     .tm-layout { grid-template-columns: 1fr; }
                     .tm-rail { display: none; }
                     .tm-rail-mobile {
                         display: flex;
                         gap: 6px;
                         overflow-x: auto;
-                        padding: 12px 28px;
+                        padding: 12px 18px;
                         border-bottom: 1px solid rgba(0,240,255,0.15);
                         scrollbar-width: none;
+                        flex: 0 0 auto;
                     }
                     .tm-rail-mobile::-webkit-scrollbar { display: none; }
                     .tm-rail-mobile button {
@@ -888,249 +877,182 @@ const TermsModal = ({ open, onClose }) => {
                         border-color: #00f0ff;
                         color: #eafcff;
                     }
-                    .modal-footer { flex-direction: column; align-items: stretch; }
+
+                    .modal-body { padding: 16px 18px 8px; }
+                    .modal-footer { flex-direction: column; align-items: stretch; padding: 14px 18px 20px; }
                     .tm-close-cta { width: 100%; }
+                }
+
+                @media (max-width: 420px) {
+                    .modal-header h2 { font-size: 16px; }
+                    .tm-eyebrow { font-size: 10px; letter-spacing: 2px; }
+                    .tm-meta-chip { padding: 5px 10px; }
+                    .tm-meta-value { font-size: 13px; }
+                    .tm-section { padding: 12px 12px 14px; }
+                    .tm-section-title { font-size: 14px; }
                 }
             `}</style>
 
-            <AnimatePresence>
-                {open && (
-                    <motion.div
-                        className="tm-backdrop"
-                        variants={backdropVariants}
-                        initial="hidden"
-                        animate="visible"
-                        exit="exit"
-                        onClick={onClose}
-                    >
-                        <motion.div
-                            className="tm-modal-wrap"
-                            variants={modalVariants}
-                            initial="hidden"
-                            animate="visible"
-                            exit="exit"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <div className="tm-modal-glow" />
+            <div className="tm-backdrop" onClick={onClose}>
+                <div
+                    className="tm-modal-wrap"
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <div className="tm-modal-glow" />
 
-                            <div className="terms-modal">
-                                <div className="tm-corner tl" />
-                                <div className="tm-corner br" />
+                    <div className="terms-modal">
+                        <div className="tm-corner tl" />
+                        <div className="tm-corner br" />
 
-                                <div className="modal-header">
-                                    <div className="tm-title-wrap">
-                                        <motion.span
-                                            className="tm-eyebrow"
-                                            initial={{ opacity: 0, x: -8 }}
-                                            animate={{ opacity: 1, x: 0 }}
-                                            transition={{ delay: 0.1, duration: 0.3 }}
-                                        >
-                                            <span className="dot" />
-                                            Legal // {data.org || "Document"}
-                                        </motion.span>
-                                        <h2>{loading ? "Loading Terms" : data.title}</h2>
-                                    </div>
-
-                                    <motion.button
-                                        className="tm-close-btn"
-                                        onClick={onClose}
-                                        whileHover={{
-                                            scale: 1.08,
-                                            backgroundColor: "rgba(255,0,200,0.18)",
-                                            boxShadow: "0 0 16px rgba(255,0,200,0.5)",
-                                        }}
-                                        whileTap={{ scale: 0.92 }}
-                                        aria-label="Close"
-                                    >
-                                        ✕
-                                    </motion.button>
-                                </div>
-
-                                <motion.div
-                                    className="tm-header-line"
-                                    variants={lineVariants}
-                                    initial="hidden"
-                                    animate="visible"
-                                />
-
-                                {!loading && (
-                                    <div className="tm-progress-track">
-                                        <div className="tm-progress-fill" ref={progressFillRef} />
-                                    </div>
-                                )}
-
-                                {!loading && usingFallback && (
-                                    <div className="tm-fallback-note">
-                                        Showing locally cached terms — live copy unavailable
-                                    </div>
-                                )}
-
-                                <AnimatePresence mode="wait">
-                                    {loading ? (
-                                        <motion.div
-                                            key="loading"
-                                            className="tm-loading-wrap"
-                                            initial={{ opacity: 0 }}
-                                            animate={{ opacity: 1, transition: { duration: 0.25, ease: "easeOut" } }}
-                                            exit={{ opacity: 0, transition: { duration: 0.2, ease: "easeIn" } }}
-                                        >
-                                            <svg className="tm-spinner" viewBox="0 0 46 46" fill="none">
-                                                <motion.polygon
-                                                    points="23,2 44,12 44,34 23,44 2,34 2,12"
-                                                    stroke="#00f0ff"
-                                                    strokeWidth="2"
-                                                    fill="none"
-                                                    animate={{
-                                                        rotate: 360,
-                                                        stroke: ["#00f0ff", "#ff00c8", "#00f0ff"],
-                                                    }}
-                                                    transition={{
-                                                        rotate: { duration: 1.6, repeat: Infinity, ease: "linear" },
-                                                        stroke: { duration: 2, repeat: Infinity, ease: "easeInOut" },
-                                                    }}
-                                                    style={{ transformOrigin: "23px 23px" }}
-                                                />
-                                            </svg>
-                                            <span className="tm-loading-text">Decrypting document…</span>
-                                        </motion.div>
-                                    ) : (
-                                        <motion.div
-                                            key="content"
-                                            initial={{ opacity: 0, y: 8 }}
-                                            animate={{ opacity: 1, y: 0, transition: { duration: 0.35, ease: "easeOut" } }}
-                                        >
-                                            {/* mobile pill nav */}
-                                            <div className="tm-rail-mobile">
-                                                {data.sections.map((s, i) => (
-                                                    <button
-                                                        key={s.num}
-                                                        className={i === activeSection ? "active" : ""}
-                                                        onClick={() => jumpTo(i)}
-                                                    >
-                                                        {s.num}
-                                                    </button>
-                                                ))}
-                                            </div>
-
-                                            <div className="tm-layout">
-                                                <nav className="tm-rail">
-                                                    {data.sections.map((s, i) => (
-                                                        <button
-                                                            key={s.num}
-                                                            className={`tm-rail-item ${i === activeSection ? "active" : ""} ${
-                                                                s.severity === "high" ? "severity-high" : ""
-                                                            }`}
-                                                            onClick={() => jumpTo(i)}
-                                                        >
-                                                            <span className="num">{s.num}</span>
-                                                            <span className="label">{s.title}</span>
-                                                        </button>
-                                                    ))}
-                                                </nav>
-
-                                                <div className="modal-body" ref={bodyRef}>
-                                                    <motion.div
-                                                        className="tm-meta-row"
-                                                        variants={sectionVariants}
-                                                        initial="hidden"
-                                                        animate="visible"
-                                                        custom={0}
-                                                    >
-                                                        <div className="tm-meta-chip">
-                                                            <span className="tm-meta-label">Version</span>
-                                                            <span className="tm-meta-value">{data.version}</span>
-                                                        </div>
-                                                        <div className="tm-meta-chip">
-                                                            <span className="tm-meta-label">Effective</span>
-                                                            <span className="tm-meta-value">{data.effective_date}</span>
-                                                        </div>
-                                                        <div className="tm-meta-chip">
-                                                            <span className="tm-meta-label">Sections</span>
-                                                            <span className="tm-meta-value">{data.sections.length}</span>
-                                                        </div>
-                                                    </motion.div>
-
-                                                    {data.intro && (
-                                                        <motion.p
-                                                            className="tm-intro"
-                                                            variants={sectionVariants}
-                                                            initial="hidden"
-                                                            animate="visible"
-                                                            custom={1}
-                                                        >
-                                                            {data.intro}
-                                                        </motion.p>
-                                                    )}
-
-                                                    {data.sections.map((s, i) => (
-                                                        <motion.section
-                                                            key={s.num}
-                                                            ref={(el) => (sectionRefs.current[i] = el)}
-                                                            className={`tm-section ${s.severity === "high" ? "severity-high" : ""}`}
-                                                            variants={sectionVariants}
-                                                            initial="hidden"
-                                                            animate="visible"
-                                                            custom={i + 2}
-                                                        >
-                                                            <div className="tm-section-head">
-                                                                <span className="tm-section-icon">
-                                                                    <Icon name={s.icon} />
-                                                                </span>
-                                                                <div>
-                                                                    <div className="tm-section-num">CLAUSE {s.num}</div>
-                                                                    <h3 className="tm-section-title">{s.title}</h3>
-                                                                </div>
-                                                            </div>
-
-                                                            {s.paragraphs?.map((p, pi) => (
-                                                                <p key={pi}>{p}</p>
-                                                            ))}
-
-                                                            {s.bullets && (
-                                                                <>
-                                                                    {s.bulletsIntro && (
-                                                                        <p className="tm-bullets-intro">{s.bulletsIntro}</p>
-                                                                    )}
-                                                                    <ul>
-                                                                        {s.bullets.map((b, bi) => (
-                                                                            <li key={bi}>{b}</li>
-                                                                        ))}
-                                                                    </ul>
-                                                                </>
-                                                            )}
-
-                                                            {s.outro?.map((p, oi) => (
-                                                                <p key={`o-${oi}`}>{p}</p>
-                                                            ))}
-                                                        </motion.section>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
-
-                                <div className="modal-footer">
-                                    <span className="tm-footer-note">
-                                        {loading ? "Standby…" : `Viewing clause ${data.sections[activeSection]?.num}`}
-                                    </span>
-                                    <motion.button
-                                        className="tm-close-cta"
-                                        onClick={onClose}
-                                        whileHover={{
-                                            scale: 1.04,
-                                            boxShadow: "0 0 22px rgba(0,240,255,0.55)",
-                                        }}
-                                        whileTap={{ scale: 0.96 }}
-                                    >
-                                        Close
-                                    </motion.button>
-                                </div>
+                        <div className="modal-header">
+                            <div className="tm-title-wrap">
+                                <span className="tm-eyebrow">
+                                    <span className="dot" />
+                                    Legal // {data.org || "Document"}
+                                </span>
+                                <h2>{loading ? "Loading Terms" : data.title}</h2>
                             </div>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+
+                            <button
+                                className="tm-close-btn"
+                                onClick={onClose}
+                                aria-label="Close"
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        <div className="tm-header-line" />
+
+                        {!loading && (
+                            <div className="tm-progress-track">
+                                <div className="tm-progress-fill" ref={progressFillRef} />
+                            </div>
+                        )}
+
+                        {!loading && usingFallback && (
+                            <div className="tm-fallback-note">
+                                Showing locally cached terms — live copy unavailable
+                            </div>
+                        )}
+
+                        <div className="tm-content-wrap">
+                            {loading ? (
+                                <div className="tm-loading-wrap">
+                                    <svg className="tm-spinner" viewBox="0 0 46 46" fill="none">
+                                        <polygon
+                                            points="23,2 44,12 44,34 23,44 2,34 2,12"
+                                            stroke="#00f0ff"
+                                            strokeWidth="2"
+                                            fill="none"
+                                        />
+                                    </svg>
+                                    <span className="tm-loading-text">Decrypting document…</span>
+                                </div>
+                            ) : (
+                                <div className="tm-layout">
+                                    {/* mobile pill nav */}
+                                    <div className="tm-rail-mobile">
+                                        {data.sections.map((s, i) => (
+                                            <button
+                                                key={s.num}
+                                                className={i === activeSection ? "active" : ""}
+                                                onClick={() => jumpTo(i)}
+                                            >
+                                                {s.num}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    <nav className="tm-rail">
+                                        {data.sections.map((s, i) => (
+                                            <button
+                                                key={s.num}
+                                                className={`tm-rail-item ${i === activeSection ? "active" : ""} ${
+                                                    s.severity === "high" ? "severity-high" : ""
+                                                }`}
+                                                onClick={() => jumpTo(i)}
+                                            >
+                                                <span className="num">{s.num}</span>
+                                                <span className="label">{s.title}</span>
+                                            </button>
+                                        ))}
+                                    </nav>
+
+                                    <div className="modal-body" ref={bodyRef}>
+                                        <div className="tm-meta-row">
+                                            <div className="tm-meta-chip">
+                                                <span className="tm-meta-label">Version</span>
+                                                <span className="tm-meta-value">{data.version}</span>
+                                            </div>
+                                            <div className="tm-meta-chip">
+                                                <span className="tm-meta-label">Effective</span>
+                                                <span className="tm-meta-value">{data.effective_date}</span>
+                                            </div>
+                                            <div className="tm-meta-chip">
+                                                <span className="tm-meta-label">Sections</span>
+                                                <span className="tm-meta-value">{data.sections.length}</span>
+                                            </div>
+                                        </div>
+
+                                        {data.intro && (
+                                            <p className="tm-intro">{data.intro}</p>
+                                        )}
+
+                                        {data.sections.map((s, i) => (
+                                            <section
+                                                key={s.num}
+                                                ref={(el) => (sectionRefs.current[i] = el)}
+                                                className={`tm-section ${s.severity === "high" ? "severity-high" : ""}`}
+                                            >
+                                                <div className="tm-section-head">
+                                                    <span className="tm-section-icon">
+                                                        <Icon name={s.icon} />
+                                                    </span>
+                                                    <div>
+                                                        <div className="tm-section-num">CLAUSE {s.num}</div>
+                                                        <h3 className="tm-section-title">{s.title}</h3>
+                                                    </div>
+                                                </div>
+
+                                                {s.paragraphs?.map((p, pi) => (
+                                                    <p key={pi}>{p}</p>
+                                                ))}
+
+                                                {s.bullets && (
+                                                    <>
+                                                        {s.bulletsIntro && (
+                                                            <p className="tm-bullets-intro">{s.bulletsIntro}</p>
+                                                        )}
+                                                        <ul>
+                                                            {s.bullets.map((b, bi) => (
+                                                                <li key={bi}>{b}</li>
+                                                            ))}
+                                                        </ul>
+                                                    </>
+                                                )}
+
+                                                {s.outro?.map((p, oi) => (
+                                                    <p key={`o-${oi}`}>{p}</p>
+                                                ))}
+                                            </section>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="modal-footer">
+                            <span className="tm-footer-note">
+                                {loading ? "Standby…" : `Viewing clause ${data.sections[activeSection]?.num}`}
+                            </span>
+                            <button className="tm-close-cta" onClick={onClose}>
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </>
     );
 };

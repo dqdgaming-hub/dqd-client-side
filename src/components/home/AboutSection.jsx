@@ -1,11 +1,3 @@
-import {
-  motion,
-  useScroll,
-  useTransform,
-  useSpring,
-  useMotionValue,
-  AnimatePresence,
-} from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { Fragment } from "react";
 import { useNavigate } from "react-router-dom";
@@ -22,54 +14,22 @@ const pillars = [
 ];
 
 /* ══════════════════════════════════════════════════
-   GLITCH COUNT-UP
+   STATIC NUMBER (no glitch / count-up, just formatted final value)
 ══════════════════════════════════════════════════ */
-function GlitchNumber({ value, suffix = "", active }) {
-  const [display, setDisplay] = useState("??");
-  const [glitching, setGlitching] = useState(false);
-  const done = useRef(false);
-
-  useEffect(() => {
-    if (!active || done.current) return;
-    done.current = true;
-    setGlitching(true);
-    let ticks = 0;
-    const iv = setInterval(() => {
-      setDisplay(Math.floor(Math.random() * Math.max(value * 5, 99)).toString());
-      ticks++;
-      if (ticks >= 14) {
-        clearInterval(iv);
-        setGlitching(false);
-        const dur = 1600;
-        const t0 = Date.now();
-        const tick = () => {
-          const p = Math.min((Date.now() - t0) / dur, 1);
-          const e = 1 - Math.pow(1 - p, 3);
-          const v = Math.round(e * value);
-          const formatted = v >= 1_000 ? `${(v / 1000).toFixed(1)}K` : String(v);
-          setDisplay(formatted + suffix);
-          if (p < 1) requestAnimationFrame(tick);
-        };
-        requestAnimationFrame(tick);
-      }
-    }, 60);
-    return () => clearInterval(iv);
-  }, [active, value, suffix]);
-
-  return <span className={glitching ? "ab-glitch" : ""}>{display}</span>;
+function StaticNumber({ value, suffix = "" }) {
+  const formatted = value >= 1_000 ? `${(value / 1000).toFixed(1)}K` : String(value);
+  return <span>{formatted}{suffix}</span>;
 }
 
 /* ══════════════════════════════════════════════════
-   ORBIT RING (decorative animated SVG)
+   ORBIT RING (now a static decorative ring, no rotation)
 ══════════════════════════════════════════════════ */
-function OrbitRing({ size = 300, color = "#00f5ff", duration = 8, opacity = 0.12 }) {
+function OrbitRing({ size = 300, color = "#00f5ff", opacity = 0.12 }) {
   return (
-    <motion.svg
+    <svg
       width={size} height={size}
       viewBox={`0 0 ${size} ${size}`}
       style={{ position: "absolute", pointerEvents: "none" }}
-      animate={{ rotate: 360 }}
-      transition={{ duration, repeat: Infinity, ease: "linear" }}
     >
       <circle
         cx={size / 2} cy={size / 2} r={size / 2 - 2}
@@ -78,34 +38,23 @@ function OrbitRing({ size = 300, color = "#00f5ff", duration = 8, opacity = 0.12
         strokeDasharray="6 18"
         opacity={opacity}
       />
-    </motion.svg>
+    </svg>
   );
 }
 
 /* ══════════════════════════════════════════════════
-   FLOATING PARTICLE (tiny neon dot)
+   FLOATING PARTICLE (now a static neon dot)
 ══════════════════════════════════════════════════ */
-function Particle({ x, y, color, delay, size }) {
+function Particle({ x, y, color, size }) {
   return (
-    <motion.div
+    <div
       style={{
         position: "absolute", left: x, top: y,
         width: size, height: size,
         borderRadius: "50%", background: color,
         filter: `blur(${size / 3}px)`,
         pointerEvents: "none",
-      }}
-      animate={{
-        y: [0, -24, 0, 12, 0],
-        x: [0, 10, -6, 0],
-        opacity: [0.6, 1, 0.4, 0.9, 0.6],
-        scale: [1, 1.4, 0.9, 1.2, 1],
-      }}
-      transition={{
-        duration: 5 + delay,
-        delay,
-        repeat: Infinity,
-        ease: "easeInOut",
+        opacity: 0.8,
       }}
     />
   );
@@ -114,91 +63,38 @@ function Particle({ x, y, color, delay, size }) {
 /* ══════════════════════════════════════════════════
    STAT BAR ITEM
 ══════════════════════════════════════════════════ */
-function StatBarItem({ value, suffix, label, color, inView, index }) {
+function StatBarItem({ value, suffix, label, color }) {
   return (
-    <motion.div
-      className="ab-stat-item"
-      initial={{ opacity: 0, y: 20, scale: 0.8 }}
-      animate={inView ? { opacity: 1, y: 0, scale: 1 } : {}}
-      transition={{
-        type: "spring",
-        stiffness: 200,
-        damping: 14,
-        delay: 0.2 + index * 0.14,
-      }}
-      whileHover={{ scale: 1.12, y: -4 }}
-    >
-      <motion.span
+    <div className="ab-stat-item">
+      <span
         className="ab-stat-val"
-        style={{ color }}
-        animate={inView ? { textShadow: [`0 0 8px ${color}`, `0 0 32px ${color}`, `0 0 12px ${color}`] } : {}}
-        transition={{ duration: 2, delay: 0.8 + index * 0.14, repeat: Infinity, repeatType: "mirror" }}
+        style={{ color, textShadow: `0 0 12px ${color}` }}
       >
-        <GlitchNumber value={value} suffix={suffix} active={inView} />
-      </motion.span>
+        <StaticNumber value={value} suffix={suffix} />
+      </span>
       <span className="ab-stat-lbl">{label}</span>
-      <motion.span
+      <span
         className="ab-stat-accent"
         style={{ background: `linear-gradient(90deg, ${color}, transparent)` }}
-        initial={{ scaleX: 0 }}
-        animate={inView ? { scaleX: 1 } : {}}
-        transition={{ duration: 1, delay: 0.6 + index * 0.14, ease: [0.22, 1, 0.36, 1] }}
       />
-    </motion.div>
+    </div>
   );
 }
 
 /* ══════════════════════════════════════════════════
    PILLAR CARD
 ══════════════════════════════════════════════════ */
-function PillarCard({ icon: Icon, label, color, index }) {
-  const [hovered, setHovered] = useState(false);
-
-  /* stagger entry */
-  const variants = {
-    hidden: { opacity: 0, x: index % 2 === 0 ? -40 : 40, y: 20, rotate: index % 2 === 0 ? -6 : 6 },
-    show:   { opacity: 1, x: 0, y: 0, rotate: 0,
-               transition: { type: "spring", stiffness: 160, damping: 14, delay: 0.3 + index * 0.08 } },
-  };
-
+function PillarCard({ icon: Icon, label, color }) {
   return (
-    <motion.div
+    <div
       className="ab-pillar"
       style={{ "--pc": color, "--pc-bg": color + "12", "--pc-bd": color + "33" }}
-      variants={variants}
-      initial="hidden"
-      whileInView="show"
-      viewport={{ once: true }}
-      whileHover={{ scale: 1.04, y: -3 }}
-      whileTap={{ scale: 0.96 }}
-      onHoverStart={() => setHovered(true)}
-      onHoverEnd={() => setHovered(false)}
     >
-      <motion.span
-        className="ab-pillar-icon"
-        animate={hovered
-          ? { rotate: [0, -15, 15, -8, 8, 0], scale: [1, 1.25, 1.1, 1.2, 1] }
-          : { rotate: 0, scale: 1 }
-        }
-        transition={{ duration: 0.5 }}
-      >
+      <span className="ab-pillar-icon">
         <Icon size={15} />
-      </motion.span>
+      </span>
       <span className="ab-pillar-label">{label}</span>
-
-      {/* sweep on hover */}
-      <AnimatePresence>
-        {hovered && (
-          <motion.span
-            className="ab-pillar-sweep"
-            initial={{ x: "-110%", skewX: "-18deg" }}
-            animate={{ x: "200%" }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
-          />
-        )}
-      </AnimatePresence>
-    </motion.div>
+    </div>
   );
 }
 
@@ -217,21 +113,7 @@ const DEFAULT_STATS = {
 export default function AboutSection({ stats = DEFAULT_STATS }) {
   const navigate    = useNavigate();
   const sectionRef = useRef(null);
-  const statRef    = useRef(null);
-  const imgRef     = useRef(null);
-  const [statInView, setStatInView] = useState(false);
-  const [isMobile, setIsMobile]     = useState(false);
-
-  /* mouse parallax for desktop image */
-  const mx = useMotionValue(0);
-  const my = useMotionValue(0);
-  const rotX = useSpring(useTransform(my, [-1, 1], [8, -8]),  { stiffness: 140, damping: 18 });
-  const rotY = useSpring(useTransform(mx, [-1, 1], [-8,  8]), { stiffness: 140, damping: 18 });
-
-  const { scrollYProgress } = useScroll({ target: sectionRef, offset: ["start end", "end start"] });
-  const textY    = useTransform(scrollYProgress, [0, 1], [50, -50]);
-  const imgScale = useTransform(scrollYProgress, [0, 0.5, 1], [0.96, 1.02, 0.96]);
-  const bgY      = useTransform(scrollYProgress, [0, 1], ["0%", "20%"]);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -239,24 +121,6 @@ export default function AboutSection({ stats = DEFAULT_STATS }) {
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
   }, []);
-
-  useEffect(() => {
-    if (!statRef.current) return;
-    const obs = new IntersectionObserver(
-      ([e]) => { if (e.isIntersecting) setStatInView(true); },
-      { threshold: 0.25 }
-    );
-    obs.observe(statRef.current);
-    return () => obs.disconnect();
-  }, []);
-
-  const handleMouseMove = (e) => {
-    if (isMobile || !imgRef.current) return;
-    const r  = imgRef.current.getBoundingClientRect();
-    mx.set(((e.clientX - r.left) / r.width  - 0.5) * 2);
-    my.set(((e.clientY - r.top)  / r.height - 0.5) * 2);
-  };
-  const handleMouseLeave = () => { mx.set(0); my.set(0); };
 
   const handleExploreGames = () => {
     navigate("/games");
@@ -270,11 +134,11 @@ export default function AboutSection({ stats = DEFAULT_STATS }) {
 
   /* particles config */
   const particles = [
-    { x: "8%",  y: "15%", color: "#00f5ff", delay: 0,   size: 6 },
-    { x: "90%", y: "10%", color: "#ff006e", delay: 1.2, size: 4 },
-    { x: "75%", y: "70%", color: "#c084fc", delay: 0.6, size: 5 },
-    { x: "5%",  y: "75%", color: "#f59e0b", delay: 1.8, size: 3 },
-    { x: "50%", y: "5%",  color: "#00f5ff", delay: 2.4, size: 4 },
+    { x: "8%",  y: "15%", color: "#00f5ff", size: 6 },
+    { x: "90%", y: "10%", color: "#ff006e", size: 4 },
+    { x: "75%", y: "70%", color: "#c084fc", size: 5 },
+    { x: "5%",  y: "75%", color: "#f59e0b", size: 3 },
+    { x: "50%", y: "5%",  color: "#00f5ff", size: 4 },
   ];
 
   return (
@@ -355,13 +219,6 @@ export default function AboutSection({ stats = DEFAULT_STATS }) {
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           background-clip: text;
-          background-size: 200% 200%;
-          animation: ab-grad-shift 4s ease infinite;
-        }
-        @keyframes ab-grad-shift {
-          0%   { background-position: 0% 50%; }
-          50%  { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
         }
 
         .ab-body {
@@ -409,13 +266,6 @@ export default function AboutSection({ stats = DEFAULT_STATS }) {
           color: rgba(255,255,255,0.82);
           letter-spacing: 0.4px;
         }
-        .ab-pillar-sweep {
-          position: absolute;
-          inset: 0;
-          width: 50%;
-          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
-          pointer-events: none;
-        }
 
         /* ─── CTA BUTTON ─── */
         .ab-cta {
@@ -459,36 +309,16 @@ export default function AboutSection({ stats = DEFAULT_STATS }) {
           position: relative;
           clip-path: polygon(0 0, calc(100% - 32px) 0, 100% 32px, 100% 100%, 32px 100%, 0 calc(100% - 32px));
           overflow: hidden;
-          transform-style: preserve-3d;
-          perspective: 900px;
         }
         .ab-img-frame img {
           width: 100%;
-          height: 500px;
+          height: 500;
           object-fit: cover;
           display: block;
           opacity: 0.88;
           transition: opacity 0.4s;
         }
         .ab-img-frame:hover img { opacity: 1; }
-
-        /* shimmer overlay on image */
-        .ab-img-shimmer {
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(
-            135deg,
-            rgba(0,245,255,0.04) 0%,
-            transparent 50%,
-            rgba(255,0,110,0.04) 100%
-          );
-          pointer-events: none;
-          animation: ab-shimmer 6s ease-in-out infinite;
-        }
-        @keyframes ab-shimmer {
-          0%,100% { opacity: 0.4; }
-          50%      { opacity: 1; }
-        }
 
         .ab-corner { position: absolute; width: 44px; height: 44px; z-index: 2; pointer-events: none; }
         .ab-corner-tl { top: -2px; left: -2px; border-top: 2px solid #00f5ff; border-left: 2px solid #00f5ff; }
@@ -557,21 +387,6 @@ export default function AboutSection({ stats = DEFAULT_STATS }) {
           height: 2px;
           margin-top: 7px;
           border-radius: 1px;
-          transform-origin: left;
-        }
-
-        /* ─── GLITCH ─── */
-        .ab-glitch {
-          filter: blur(0.8px);
-          opacity: 0.5;
-          animation: ab-gn-flick 0.06s linear infinite;
-          color: rgba(255,255,255,0.45) !important;
-          text-shadow: none !important;
-        }
-        @keyframes ab-gn-flick {
-          0%,100% { transform: none; }
-          33%      { transform: translateX(2px); }
-          66%      { transform: translateX(-2px); }
         }
 
         /* ═══════════════════════════════════════
@@ -589,7 +404,7 @@ export default function AboutSection({ stats = DEFAULT_STATS }) {
           .ab-visual-col { order: -1; margin-bottom: 48px; }
           .ab-text-col   { order: 1; }
 
-          .ab-img-frame img { height: 240px; }
+          .ab-img-frame img { height: 380px; padding:24px; }
 
           /* Stat bar becomes a horizontal scroll row on very small screens */
           .ab-stat-bar {
@@ -621,177 +436,89 @@ export default function AboutSection({ stats = DEFAULT_STATS }) {
 
       <section className="ab-section" ref={sectionRef}>
 
-        {/* ── Ambient orbs ── */}
-        <motion.div
+        {/* ── Ambient orbs (static) ── */}
+        <div
           className="ab-bg-orb"
           style={{ width: 600, height: 600, top: -200, left: -150, background: "rgba(0,245,255,0.055)" }}
-          animate={{ scale: [1, 1.12, 1], opacity: [0.6, 1, 0.6] }}
-          transition={{ duration: 9, repeat: Infinity, ease: "easeInOut" }}
         />
-        <motion.div
+        <div
           className="ab-bg-orb"
           style={{ width: 500, height: 500, bottom: -150, right: -80, background: "rgba(255,0,110,0.055)" }}
-          animate={{ scale: [1, 1.1, 1], opacity: [0.5, 0.9, 0.5] }}
-          transition={{ duration: 11, repeat: Infinity, ease: "easeInOut", delay: 2 }}
         />
-        <motion.div
+        <div
           className="ab-bg-orb"
           style={{ width: 300, height: 300, top: "40%", left: "50%", background: "rgba(124,58,237,0.04)" }}
-          animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0.7, 0.3] }}
-          transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay: 1 }}
         />
 
-        {/* ── Floating particles ── */}
+        {/* ── Floating particles (static) ── */}
         {particles.map((p, i) => <Particle key={i} {...p} />)}
 
         <div className="ab-inner">
 
           {/* ══════════ TEXT COLUMN ══════════ */}
-          <motion.div
-            className="ab-text-col"
-            style={{ y: isMobile ? 0 : textY }}
-          >
+          <div className="ab-text-col">
             {/* eyebrow */}
-            <motion.div
-              className="ab-eyebrow"
-              initial={{ opacity: 0, x: -30, filter: "blur(6px)" }}
-              whileInView={{ opacity: 1, x: 0, filter: "blur(0px)" }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.7 }}
-            >
-              <motion.span
-                animate={{ rotate: [0, 20, -20, 0] }}
-                transition={{ duration: 3, repeat: Infinity, delay: 1 }}
-              >
-                <Star size={11} />
-              </motion.span>
+            <div className="ab-eyebrow">
+              <Star size={11} />
               Est. 2024
-            </motion.div>
+            </div>
 
-            {/* headline — letters stagger in */}
-            <motion.h2
-              className="ab-headline"
-              initial={{ opacity: 0, y: 40 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.75, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
-            >
+            {/* headline */}
+            <h2 className="ab-headline">
               Welcome to
               <br />
-              <motion.span
-                className="ab-headline-grad"
-                initial={{ opacity: 0, letterSpacing: "0.5em" }}
-                whileInView={{ opacity: 1, letterSpacing: "0em" }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.9, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
-              >
-                DQD Gaming
-              </motion.span>
-            </motion.h2>
+              <span className="ab-headline-grad">DQD Gaming</span>
+            </h2>
 
             {/* body */}
-            <motion.p
-              className="ab-body"
-              initial={{ opacity: 0, y: 24, filter: "blur(4px)" }}
-              whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.7, delay: 0.3 }}
-            >
+            <p className="ab-body">
               Experience next-generation gaming with PlayStation, VR, simulators,
               pool tables, board games, multiplayer arenas, tournaments, exclusive
               events, combo offers, loyalty rewards, and much more — all in one
               immersive venue.
-            </motion.p>
+            </p>
 
             {/* pillars */}
-            <motion.div
-              className="ab-pillars"
-              initial="hidden"
-              whileInView="show"
-              viewport={{ once: true }}
-            >
-              {pillars.map((p, i) => (
-                <PillarCard key={p.label} {...p} index={i} />
+            <div className="ab-pillars">
+              {pillars.map((p) => (
+                <PillarCard key={p.label} {...p} />
               ))}
-            </motion.div>
-
-            {/* CTA */}
-            <motion.button
-              className="ab-cta"
-              onClick={handleExploreGames}
-              initial={{ opacity: 0, y: 16, scale: 0.9 }}
-              whileInView={{ opacity: 1, y: 0, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ type: "spring", stiffness: 200, damping: 16, delay: 0.65 }}
-              whileHover={{ scale: 1.05, y: -2 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <span>Explore Games</span>
-              <motion.span
-                animate={{ x: [0, 5, 0] }}
-                transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
-              >
-                <ChevronRight size={16} />
-              </motion.span>
-            </motion.button>
-          </motion.div>
-
-          {/* ══════════ VISUAL COLUMN ══════════ */}
-          <motion.div
-            className="ab-visual-col ab-visual"
-            initial={{ opacity: 0, x: isMobile ? 0 : 60, y: isMobile ? 40 : 0 }}
-            whileInView={{ opacity: 1, x: 0, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.9, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
-          >
-            {/* orbit rings */}
-            <div className="ab-orbit-wrap" style={{ top: "40%", left: "50%" }}>
-              <OrbitRing size={460} color="#00f5ff" duration={14} opacity={0.07} />
-              <OrbitRing size={340} color="#ff006e" duration={9}  opacity={0.08} />
-              <OrbitRing size={220} color="#c084fc" duration={6}  opacity={0.1} />
             </div>
 
-            {/* 3-D parallax image frame */}
-            <motion.div
-              ref={imgRef}
-              className="ab-img-frame"
-              style={isMobile ? { scale: imgScale } : { rotateX: rotX, rotateY: rotY, scale: imgScale }}
-              onMouseMove={handleMouseMove}
-              onMouseLeave={handleMouseLeave}
-              whileHover={isMobile ? {} : { scale: 1.02 }}
-              transition={{ type: "spring", stiffness: 200, damping: 20 }}
-            >
-              {/* <div className="ab-corner ab-corner-tl" /> */}
+            {/* CTA */}
+            <button className="ab-cta" onClick={handleExploreGames}>
+              <span>Explore Games</span>
+              <ChevronRight size={16} />
+            </button>
+          </div>
+
+          {/* ══════════ VISUAL COLUMN ══════════ */}
+          <div className="ab-visual-col ab-visual">
+            {/* orbit rings */}
+            <div className="ab-orbit-wrap" style={{ top: "40%", left: "50%" }}>
+              <OrbitRing size={460} color="#00f5ff" opacity={0.07} />
+              <OrbitRing size={340} color="#ff006e" opacity={0.08} />
+              <OrbitRing size={220} color="#c084fc" opacity={0.1} />
+            </div>
+
+            {/* image frame */}
+            <div className="ab-img-frame">
               <div className="ab-corner ab-corner-br" />
-              {/* <div className="ab-img-shimmer" /> */}
               <img src="/logo.png" alt="DQD Gaming" />
-            </motion.div>
+            </div>
 
             {/* LIVE STAT BAR */}
-            <motion.div
-              ref={statRef}
-              className="ab-stat-bar"
-              initial={{ opacity: 0, y: 20, scale: 0.96 }}
-              whileInView={{ opacity: 1, y: 0, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ type: "spring", stiffness: 180, damping: 18, delay: 0.4 }}
-            >
+            <div className="ab-stat-bar">
               {statItems.map((item, i) => (
                 <Fragment key={item.label}>
-                  <StatBarItem key={item.label} {...item} inView={statInView} index={i} />
+                  <StatBarItem {...item} />
                   {i < statItems.length - 1 && (
-                    <motion.div
-                      key={`div-${i}`}
-                      className="ab-stat-divider"
-                      initial={{ scaleY: 0 }}
-                      animate={statInView ? { scaleY: 1 } : {}}
-                      transition={{ duration: 0.5, delay: 0.5 + i * 0.1 }}
-                    />
+                    <div key={`div-${i}`} className="ab-stat-divider" />
                   )}
                 </Fragment>
               ))}
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
 
         </div>
       </section>

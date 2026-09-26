@@ -1,6 +1,5 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import emailjs from "@emailjs/browser";
-import { motion, AnimatePresence, useScroll, useTransform, useSpring } from "framer-motion";
 import { emailjsConfig } from "../../Auth/User/DashboardComponents/emailjsConfig";
 
 /* ══════════════════════════════════════════════
@@ -61,86 +60,53 @@ const IconSignal = ({ size = 14, color = T.cyan }) => (
 );
 
 /* ══════════════════════════════════════════════
-   FLOATING PARTICLE
+   FLOATING PARTICLE (static)
 ══════════════════════════════════════════════ */
-function Particle({ x, y, color, delay, size }) {
+function Particle({ x, y, color, size }) {
   return (
-    <motion.div
+    <div
       style={{
         position: "absolute", left: x, top: y,
         width: size, height: size, borderRadius: "50%",
         background: color, filter: `blur(${size / 2.5}px)`,
-        pointerEvents: "none", zIndex: 0,
+        pointerEvents: "none", zIndex: 0, opacity: 0.7,
       }}
-      animate={{ y: [0, -20, 0, 10, 0], x: [0, 8, -5, 0], opacity: [0.5, 1, 0.3, 0.8, 0.5], scale: [1, 1.4, 0.8, 1.2, 1] }}
-      transition={{ duration: 5 + delay * 0.7, delay, repeat: Infinity, ease: "easeInOut" }}
     />
   );
 }
 
 /* ══════════════════════════════════════════════
-   SCAN LINE (animated sweep on cards)
+   ORBIT RING (static)
 ══════════════════════════════════════════════ */
-function ScanSweep({ active }) {
+function OrbitRing({ size, color, opacity = 0.1 }) {
   return (
-    <AnimatePresence>
-      {active && (
-        <motion.div
-          style={{
-            position: "absolute", inset: 0, width: "45%", pointerEvents: "none", zIndex: 2,
-            background: "linear-gradient(90deg, transparent, rgba(0,245,255,0.07), transparent)",
-          }}
-          initial={{ x: "-110%", skewX: "-18deg" }}
-          animate={{ x: "310%" }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.85, ease: "easeOut" }}
-        />
-      )}
-    </AnimatePresence>
-  );
-}
-
-/* ══════════════════════════════════════════════
-   ORBIT RING
-══════════════════════════════════════════════ */
-function OrbitRing({ size, color, duration, opacity = 0.1 }) {
-  return (
-    <motion.svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}
       style={{ position: "absolute", pointerEvents: "none" }}
-      animate={{ rotate: 360 }}
-      transition={{ duration, repeat: Infinity, ease: "linear" }}
     >
       <circle cx={size/2} cy={size/2} r={size/2 - 2}
         fill="none" stroke={color} strokeWidth="1"
         strokeDasharray="5 16" opacity={opacity} />
-    </motion.svg>
+    </svg>
   );
 }
 
 /* ══════════════════════════════════════════════
-   ANIMATED FORM FIELD
+   FORM FIELD (no motion)
 ══════════════════════════════════════════════ */
 function Field({ id, label, type = "text", placeholder, value, onChange, required, as: As = "input" }) {
   const [focused, setFocused] = useState(false);
   const [filled,  setFilled]  = useState(false);
 
   return (
-    <motion.div
-      className="dqmq2-field"
-      initial={{ opacity: 0, x: -18 }}
-      whileInView={{ opacity: 1, x: 0 }}
-      viewport={{ once: true }}
-      transition={{ type: "spring", stiffness: 180, damping: 18 }}
-    >
-      <motion.label
+    <div className="dqmq2-field">
+      <label
         className="dqmq2-label"
         htmlFor={id}
-        animate={{ color: focused ? T.cyan : T.muted, x: focused ? 2 : 0 }}
-        transition={{ duration: 0.2 }}
+        style={{ color: focused ? T.cyan : T.muted }}
       >
         {label}
         {required && <span style={{ color: T.pink, marginLeft: 4 }}>*</span>}
-      </motion.label>
+      </label>
 
       <div style={{ position: "relative" }}>
         <As
@@ -156,32 +122,27 @@ function Field({ id, label, type = "text", placeholder, value, onChange, require
           style={{ resize: As === "textarea" ? "vertical" : undefined, minHeight: As === "textarea" ? 90 : undefined }}
         />
         {/* focus glow line */}
-        <motion.div
+        <div
           style={{
             position: "absolute", bottom: 0, left: 0, height: 2,
             background: `linear-gradient(90deg, ${T.cyan}, ${T.purple})`,
             transformOrigin: "left",
+            transform: focused ? "scaleX(1)" : "scaleX(0)",
+            opacity: focused ? 1 : 0,
           }}
-          animate={{ scaleX: focused ? 1 : 0, opacity: focused ? 1 : 0 }}
-          transition={{ duration: 0.3 }}
         />
         {/* filled indicator dot */}
-        <AnimatePresence>
-          {filled && !focused && (
-            <motion.div
-              initial={{ scale: 0, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0, opacity: 0 }}
-              style={{
-                position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
-                width: 6, height: 6, borderRadius: "50%", background: T.green,
-                boxShadow: `0 0 8px ${T.green}`,
-              }}
-            />
-          )}
-        </AnimatePresence>
+        {filled && !focused && (
+          <div
+            style={{
+              position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
+              width: 6, height: 6, borderRadius: "50%", background: T.green,
+              boxShadow: `0 0 8px ${T.green}`,
+            }}
+          />
+        )}
       </div>
-    </motion.div>
+    </div>
   );
 }
 
@@ -190,44 +151,31 @@ function Field({ id, label, type = "text", placeholder, value, onChange, require
 ══════════════════════════════════════════════ */
 function SuccessState() {
   return (
-    <motion.div
+    <div
       style={{ textAlign: "center", padding: "36px 20px", display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}
-      initial={{ opacity: 0, scale: 0.8 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ type: "spring", stiffness: 200, damping: 14 }}
     >
-      {/* pulsing check */}
-      <motion.div
-        animate={{ scale: [1, 1.15, 1], filter: [`drop-shadow(0 0 8px ${T.green})`, `drop-shadow(0 0 24px ${T.green})`, `drop-shadow(0 0 8px ${T.green})`] }}
-        transition={{ duration: 2, repeat: Infinity }}
-      >
+      <div style={{ filter: `drop-shadow(0 0 14px ${T.green})` }}>
         <IconCheck size={48} />
-      </motion.div>
+      </div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 10, letterSpacing: "0.6em" }}
-        animate={{ opacity: 1, y: 0, letterSpacing: "0.24em" }}
-        transition={{ delay: 0.25, duration: 0.7 }}
-        style={{ fontFamily: "'Orbitron', sans-serif", fontSize: "1rem", fontWeight: 700, color: T.green, textTransform: "uppercase" }}
+      <div
+        style={{ fontFamily: "'Orbitron', sans-serif", fontSize: "1rem", fontWeight: 700, color: T.green, textTransform: "uppercase", letterSpacing: "0.24em" }}
       >
         Message Transmitted
-      </motion.div>
+      </div>
 
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.5 }}
+      <div
         style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: "0.7rem", color: T.muted, letterSpacing: 1 }}
       >
         We'll respond within 24 hours.
-      </motion.div>
+      </div>
 
       {/* orbit rings around success */}
       <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", pointerEvents: "none" }}>
-        <OrbitRing size={160} color={T.green}  duration={5}  opacity={0.18} />
-        <OrbitRing size={220} color={T.cyan}   duration={8}  opacity={0.1} />
+        <OrbitRing size={160} color={T.green} opacity={0.18} />
+        <OrbitRing size={220} color={T.cyan}  opacity={0.1} />
       </div>
-    </motion.div>
+    </div>
   );
 }
 
@@ -239,11 +187,6 @@ export default function MapAndEnquiry({ onSubmit }) {
   const [form, setForm]   = useState({ name: "", email: "", phone: "", message: "" });
   const [status, setStatus] = useState("idle");   // idle | sending | sent
   const [error,  setError]  = useState("");
-  const [mapScan, setMapScan] = useState(false);
-  const [formScan, setFormScan] = useState(false);
-
-  const { scrollYProgress } = useScroll({ target: sectionRef, offset: ["start end", "end start"] });
-  const headY = useTransform(scrollYProgress, [0, 1], [30, -30]);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -268,12 +211,12 @@ export default function MapAndEnquiry({ onSubmit }) {
   };
 
   const particles = [
-    { x: "4%",  y: "12%", color: T.cyan,   delay: 0,   size: 5 },
-    { x: "93%", y: "8%",  color: T.pink,   delay: 1.1, size: 4 },
-    { x: "88%", y: "78%", color: T.purple, delay: 0.5, size: 6 },
-    { x: "2%",  y: "82%", color: T.amber,  delay: 1.7, size: 3 },
-    { x: "48%", y: "3%",  color: T.cyan,   delay: 2.3, size: 4 },
-    { x: "60%", y: "95%", color: T.pink,   delay: 0.9, size: 3 },
+    { x: "4%",  y: "12%", color: T.cyan,   size: 5 },
+    { x: "93%", y: "8%",  color: T.pink,   size: 4 },
+    { x: "88%", y: "78%", color: T.purple, size: 6 },
+    { x: "2%",  y: "82%", color: T.amber,  size: 3 },
+    { x: "48%", y: "3%",  color: T.cyan,   size: 4 },
+    { x: "60%", y: "95%", color: T.pink,   size: 3 },
   ];
 
   return (
@@ -341,9 +284,9 @@ export default function MapAndEnquiry({ onSubmit }) {
           border: 1px solid ${T.border};
           clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px));
           overflow: hidden;
-          transition: border-color 0.35s;
+          transition: border-color 0.35s, box-shadow 0.35s, transform 0.35s;
         }
-        .dqmq2-card:hover { border-color: rgba(0,245,255,0.32); }
+        .dqmq2-card:hover { border-color: rgba(0,245,255,0.32); transform: translateY(-4px); }
 
         /* corner accents */
         .dqmq2-corner {
@@ -373,13 +316,13 @@ export default function MapAndEnquiry({ onSubmit }) {
           letter-spacing: 1px; text-transform: uppercase;
           color: ${T.cyan}; text-decoration: none;
           border: 1px solid ${T.cyan}55; padding: 5px 11px;
-          transition: background 0.2s, box-shadow 0.2s;
+          transition: background 0.2s, box-shadow 0.2s, transform 0.2s;
         }
-        .dqmq2-directions:hover { background: ${T.cyan}18; box-shadow: 0 0 14px ${T.cyan}22; }
+        .dqmq2-directions:hover { background: ${T.cyan}18; box-shadow: 0 0 14px ${T.cyan}22; transform: scale(1.05); }
         .dqmq2-map-iframe {
           width: 100%; height: 360px; border: none; display: block;
         }
-        /* map overlay pulse */
+        /* map overlay */
         .dqmq2-map-overlay {
           position: absolute;
           bottom: 0; left: 0; right: 0; height: 60px;
@@ -404,6 +347,7 @@ export default function MapAndEnquiry({ onSubmit }) {
           font-family: 'Share Tech Mono', monospace;
           font-size: 0.62rem; letter-spacing: 2px;
           text-transform: uppercase; margin-bottom: 6px;
+          transition: color 0.2s;
         }
         .dqmq2-input {
           width: 100%; background: ${T.bg};
@@ -426,14 +370,11 @@ export default function MapAndEnquiry({ onSubmit }) {
           clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
           display: flex; align-items: center; justify-content: center; gap: 8px;
           position: relative; overflow: hidden;
-          transition: box-shadow 0.25s;
+          transition: box-shadow 0.25s, transform 0.2s;
         }
-        .dqmq2-submit:hover:not(:disabled) { box-shadow: 0 0 28px ${T.cyan}30; }
+        .dqmq2-submit:hover:not(:disabled) { box-shadow: 0 0 28px ${T.cyan}30; transform: scale(1.02) translateY(-2px); }
+        .dqmq2-submit:active:not(:disabled) { transform: scale(0.97); }
         .dqmq2-submit:disabled { opacity: 0.55; cursor: not-allowed; }
-        .dqmq2-submit-shimmer {
-          position: absolute; inset: 0; pointer-events: none;
-          background: linear-gradient(90deg, transparent, rgba(0,245,255,0.12), transparent);
-        }
 
         /* ── error msg ── */
         .dqmq2-error {
@@ -468,128 +409,71 @@ export default function MapAndEnquiry({ onSubmit }) {
       `}</style>
 
       <div className="dqmq2-wrap" ref={sectionRef}>
-        {/* ── ambient orbs ── */}
-        <motion.div className="dqmq2-bg-orb"
+        {/* ── ambient orbs (static) ── */}
+        <div className="dqmq2-bg-orb"
           style={{ width: 500, height: 500, top: -150, left: -100, background: "rgba(0,245,255,0.05)" }}
-          animate={{ scale: [1, 1.1, 1], opacity: [0.6, 1, 0.6] }}
-          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
         />
-        <motion.div className="dqmq2-bg-orb"
+        <div className="dqmq2-bg-orb"
           style={{ width: 400, height: 400, bottom: -120, right: -80, background: "rgba(123,47,255,0.05)" }}
-          animate={{ scale: [1, 1.14, 1], opacity: [0.4, 0.8, 0.4] }}
-          transition={{ duration: 12, repeat: Infinity, ease: "easeInOut", delay: 2 }}
         />
 
-        {/* ── floating particles ── */}
+        {/* ── floating particles (static) ── */}
         {particles.map((p, i) => <Particle key={i} {...p} />)}
 
         <div className="dqmq2-inner">
 
           {/* ── section heading ── */}
-          <motion.div style={{ y: headY }}>
-            <motion.div
-              className="dqmq2-section-heading"
-              initial={{ opacity: 0, x: -30, filter: "blur(6px)" }}
-              whileInView={{ opacity: 1, x: 0, filter: "blur(0px)" }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.7 }}
-            >
-              <motion.span
-                animate={{ y: [0, -4, 0] }}
-                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-              >
-                <IconMapPin size={22} />
-              </motion.span>
+          <div>
+            <div className="dqmq2-section-heading">
+              <IconMapPin size={22} />
               <span>Find Us &amp;</span>
-              <motion.span
+              <span
                 style={{
                   background: `linear-gradient(135deg, ${T.cyan}, ${T.purple}, ${T.pink})`,
                   WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
-                  backgroundClip: "text", backgroundSize: "200% 200%",
+                  backgroundClip: "text",
                 }}
-                animate={{ backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"] }}
-                transition={{ duration: 5, repeat: Infinity }}
               >
                 Reach Out
-              </motion.span>
-            </motion.div>
+              </span>
+            </div>
 
-            <motion.div
-              className="dqmq2-section-sub"
-              initial={{ opacity: 0, x: -20 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: 0.15 }}
-            >
+            <div className="dqmq2-section-sub">
               <IconSignal size={12} color={T.cyan} />
               DQD Gaming Hub · Kochi, Kerala
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
 
           {/* ── two-col grid ── */}
           <div className="dqmq2-grid">
 
             {/* ══════════ MAP CARD ══════════ */}
-            <motion.div
-              className="dqmq2-card"
-              initial={{ opacity: 0, x: -50, rotateY: -8 }}
-              whileInView={{ opacity: 1, x: 0, rotateY: 0 }}
-              viewport={{ once: true }}
-              transition={{ type: "spring", stiffness: 130, damping: 18, delay: 0.1 }}
-              onViewportEnter={() => { setTimeout(() => setMapScan(true), 200); setTimeout(() => setMapScan(false), 1200); }}
-              whileHover={{ y: -4, boxShadow: `0 16px 48px rgba(0,245,255,0.08)` }}
-            >
+            <div className="dqmq2-card">
               <div className="dqmq2-corner dqmq2-corner-tl" />
               <div className="dqmq2-corner dqmq2-corner-br" />
-              <ScanSweep active={mapScan} />
 
-              {/* orbit rings behind map header */}
+              {/* orbit ring behind map header */}
               <div style={{ position: "absolute", top: 28, right: -60, pointerEvents: "none", opacity: 0.5 }}>
-                <OrbitRing size={120} color={T.cyan} duration={12} opacity={0.12} />
+                <OrbitRing size={120} color={T.cyan} opacity={0.12} />
               </div>
 
               <div className="dqmq2-map-header">
-                <motion.span
-                  className="dqmq2-map-title"
-                  initial={{ opacity: 0 }}
-                  whileInView={{ opacity: 1 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: 0.4 }}
-                >
-                  <motion.span
-                    animate={{ scale: [1, 1.2, 1], filter: [`drop-shadow(0 0 3px ${T.cyan})`, `drop-shadow(0 0 10px ${T.cyan})`, `drop-shadow(0 0 3px ${T.cyan})`] }}
-                    transition={{ duration: 2.5, repeat: Infinity }}
-                  >
-                    <IconMapPin size={14} />
-                  </motion.span>
+                <span className="dqmq2-map-title">
+                  <IconMapPin size={14} />
                   DQD Gaming Hub — Kochi
-                </motion.span>
+                </span>
 
-                <motion.a
+                <a
                   className="dqmq2-directions"
                   href={GOOGLE_MAPS_DIRECTIONS_URL}
                   target="_blank" rel="noopener noreferrer"
-                  initial={{ opacity: 0, scale: 0.85 }}
-                  whileInView={{ opacity: 1, scale: 1 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: 0.5, type: "spring", stiffness: 200 }}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
                 >
-                  <motion.span animate={{ x: [0, 3, 0] }} transition={{ duration: 1.4, repeat: Infinity }}>
-                    <IconRoute />
-                  </motion.span>
+                  <IconRoute />
                   Get Directions
-                </motion.a>
+                </a>
               </div>
 
-              <motion.div
-                style={{ position: "relative", overflow: "hidden" }}
-                initial={{ opacity: 0 }}
-                whileInView={{ opacity: 1 }}
-                viewport={{ once: true }}
-                transition={{ delay: 0.35, duration: 0.6 }}
-              >
+              <div style={{ position: "relative", overflow: "hidden" }}>
                 <iframe
                   className="dqmq2-map-iframe"
                   src={GOOGLE_MAPS_EMBED_SRC}
@@ -599,145 +483,80 @@ export default function MapAndEnquiry({ onSubmit }) {
                   referrerPolicy="strict-origin-when-cross-origin"
                 />
                 <div className="dqmq2-map-overlay" />
-              </motion.div>
+              </div>
 
-              {/* live signal bars at bottom */}
-              <motion.div
-                style={{ padding: "10px 18px", display: "flex", alignItems: "center", gap: 10, borderTop: `1px solid ${T.border}` }}
-                initial={{ opacity: 0 }}
-                whileInView={{ opacity: 1 }}
-                viewport={{ once: true }}
-                transition={{ delay: 0.6 }}
-              >
+              {/* signal bars at bottom */}
+              <div style={{ padding: "10px 18px", display: "flex", alignItems: "center", gap: 10, borderTop: `1px solid ${T.border}` }}>
                 <div className="dqmq2-signal">
                   {[8, 12, 16, 20, 14].map((h, i) => (
-                    <motion.div key={i} className="dqmq2-signal-bar" style={{ height: h }}
-                      animate={{ opacity: [0.3, 1, 0.3], height: [h * 0.6, h, h * 0.6] }}
-                      transition={{ duration: 1.2, delay: i * 0.15, repeat: Infinity }}
-                    />
+                    <div key={i} className="dqmq2-signal-bar" style={{ height: h }} />
                   ))}
                 </div>
                 <span style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: "0.62rem", color: T.muted, letterSpacing: 2 }}>
                   LIVE LOCATION
                 </span>
-                <motion.div
+                <div
                   style={{ marginLeft: "auto", width: 7, height: 7, borderRadius: "50%", background: T.green, boxShadow: `0 0 8px ${T.green}` }}
-                  animate={{ opacity: [1, 0.2, 1] }}
-                  transition={{ duration: 1.5, repeat: Infinity }}
                 />
-              </motion.div>
-            </motion.div>
+              </div>
+            </div>
 
             {/* ══════════ ENQUIRY CARD ══════════ */}
-            <motion.div
-              className="dqmq2-card"
-              initial={{ opacity: 0, x: 50, rotateY: 8 }}
-              whileInView={{ opacity: 1, x: 0, rotateY: 0 }}
-              viewport={{ once: true }}
-              transition={{ type: "spring", stiffness: 130, damping: 18, delay: 0.2 }}
-              onViewportEnter={() => { setTimeout(() => setFormScan(true), 350); setTimeout(() => setFormScan(false), 1350); }}
-              whileHover={{ y: -4, boxShadow: `0 16px 48px rgba(123,47,255,0.08)` }}
-            >
+            <div className="dqmq2-card">
               <div className="dqmq2-corner dqmq2-corner-tl" />
               <div className="dqmq2-corner dqmq2-corner-br" />
-              <ScanSweep active={formScan} />
 
               <div style={{ position: "absolute", bottom: -40, left: -40, pointerEvents: "none", opacity: 0.4 }}>
-                <OrbitRing size={140} color={T.purple} duration={10} opacity={0.15} />
+                <OrbitRing size={140} color={T.purple} opacity={0.15} />
               </div>
 
               <div className="dqmq2-enquiry-inner" style={{ position: "relative" }}>
-                <motion.div
-                  className="dqmq2-enquiry-title"
-                  initial={{ opacity: 0, y: -10 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: 0.3 }}
-                >
-                  <motion.span
-                    animate={{ rotate: [0, -8, 8, 0] }}
-                    transition={{ duration: 3, repeat: Infinity, delay: 2 }}
-                  >
-                    <IconMail size={15} />
-                  </motion.span>
+                <div className="dqmq2-enquiry-title">
+                  <IconMail size={15} />
                   Send an Enquiry
-                </motion.div>
+                </div>
 
-                <AnimatePresence mode="wait">
-                  {status === "sent" ? (
-                    <motion.div key="success" style={{ position: "relative", minHeight: 300 }}>
-                      <SuccessState />
-                    </motion.div>
-                  ) : (
-                    <motion.div key="form"
-                      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, y: -20 }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      <AnimatePresence>
-                        {error && (
-                          <motion.div className="dqmq2-error"
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: "auto" }}
-                            exit={{ opacity: 0, height: 0 }}
-                            transition={{ duration: 0.3 }}
-                          >
-                            ⚠ {error}
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
+                {status === "sent" ? (
+                  <div style={{ position: "relative", minHeight: 300 }}>
+                    <SuccessState />
+                  </div>
+                ) : (
+                  <div>
+                    {error && (
+                      <div className="dqmq2-error">
+                        ⚠ {error}
+                      </div>
+                    )}
 
-                      <Field id="dqmq2-name"    label="Full Name" placeholder="Your name"       value={form.name}    onChange={e => setForm({ ...form, name: e.target.value })}    required />
-                      <Field id="dqmq2-email"   label="Email"     type="email" placeholder="name@gmail.com" value={form.email}   onChange={e => setForm({ ...form, email: e.target.value })}   required />
-                      <Field id="dqmq2-phone"   label="Phone"     placeholder="+91 ..."          value={form.phone}   onChange={e => setForm({ ...form, phone: e.target.value })} />
-                      <Field id="dqmq2-message" label="Message"   placeholder="Tell us what you need..." value={form.message} onChange={e => setForm({ ...form, message: e.target.value })} as="textarea" />
+                    <Field id="dqmq2-name"    label="Full Name" placeholder="Your name"       value={form.name}    onChange={e => setForm({ ...form, name: e.target.value })}    required />
+                    <Field id="dqmq2-email"   label="Email"     type="email" placeholder="name@gmail.com" value={form.email}   onChange={e => setForm({ ...form, email: e.target.value })}   required />
+                    <Field id="dqmq2-phone"   label="Phone"     placeholder="+91 ..."          value={form.phone}   onChange={e => setForm({ ...form, phone: e.target.value })} />
+                    <Field id="dqmq2-message" label="Message"   placeholder="Tell us what you need..." value={form.message} onChange={e => setForm({ ...form, message: e.target.value })} as="textarea" />
 
-                      <motion.div
-                        initial={{ opacity: 0, y: 12 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ delay: 0.5, type: "spring", stiffness: 180, damping: 16 }}
+                    <div>
+                      <button
+                        className="dqmq2-submit"
+                        type="button"
+                        disabled={status === "sending"}
+                        onClick={submit}
                       >
-                        <motion.button
-                          className="dqmq2-submit"
-                          type="button"
-                          disabled={status === "sending"}
-                          onClick={submit}
-                          whileHover={status !== "sending" ? { scale: 1.02, y: -2 } : {}}
-                          whileTap={status !== "sending" ? { scale: 0.97 } : {}}
-                        >
-                          {/* shimmer sweep on hover */}
-                          <motion.span
-                            className="dqmq2-submit-shimmer"
-                            initial={{ x: "-100%", skewX: "-18deg" }}
-                            whileHover={{ x: "200%" }}
-                            transition={{ duration: 0.5 }}
-                          />
-
-                          {status === "sending" ? (
-                            <>
-                              <motion.span animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}>
-                                <IconSignal size={14} color={T.cyan} />
-                              </motion.span>
-                              Transmitting…
-                            </>
-                          ) : (
-                            <>
-                              <motion.span
-                                animate={{ x: [0, 4, 0], y: [0, -2, 0] }}
-                                transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
-                              >
-                                <IconSend size={14} />
-                              </motion.span>
-                              Transmit Message
-                            </>
-                          )}
-                        </motion.button>
-                      </motion.div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                        {status === "sending" ? (
+                          <>
+                            <IconSignal size={14} color={T.cyan} />
+                            Transmitting…
+                          </>
+                        ) : (
+                          <>
+                            <IconSend size={14} />
+                            Transmit Message
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-            </motion.div>
+            </div>
 
           </div>
         </div>
