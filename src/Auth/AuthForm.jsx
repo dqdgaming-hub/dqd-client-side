@@ -69,7 +69,7 @@ const I = {
   ),
 };
 
-/* ── Glitch text component ── */
+/* ── Glitch text component (kept for potential future use; no animation applied) ── */
 function GlitchText({ children, className }) {
   return (
     <span className={`cp-glitch ${className || ""}`} data-text={children}>
@@ -324,8 +324,8 @@ useEffect(() => {
         setInfoFadeAnim("");
         setFormFadeAnim("");
         setAnimating(false);
-      }, 580);
-    }, 200);
+      }, 380);
+    }, 150);
   }, [animating]);
 
   doSwitchRef.current = doSwitch;
@@ -431,9 +431,9 @@ const handleForgotPassword = () => {
   ];
 
   const mobileStepVariants = {
-    enter: (direction) => ({ x: direction >= 0 ? 42 : -42, opacity: 0, scale: 0.98 }),
-    center: { x: 0, opacity: 1, scale: 1 },
-    exit: (direction) => ({ x: direction >= 0 ? -42 : 42, opacity: 0, scale: 0.98 }),
+    enter: (direction) => ({ x: direction >= 0 ? 24 : -24, opacity: 0 }),
+    center: { x: 0, opacity: 1 },
+    exit: (direction) => ({ x: direction >= 0 ? -24 : 24, opacity: 0 }),
   };
 
   const clampStep = (step, max) => Math.max(0, Math.min(max, step));
@@ -520,11 +520,6 @@ const handleForgotPassword = () => {
         0deg, transparent, transparent 2px,
         rgba(0,255,225,0.018) 2px, rgba(0,255,225,0.018) 4px
       );
-      animation: scanRoll 12s linear infinite;
-    }
-    @keyframes scanRoll {
-      0%   { background-position: 0 0; }
-      100% { background-position: 0 400px; }
     }
     .ar-grid {
       position: fixed; inset: 0; pointer-events: none; z-index: 0;
@@ -534,20 +529,13 @@ const handleForgotPassword = () => {
       background-size: 48px 48px;
     }
 
-    /* Floating particles */
+    /* Floating particles (static — no continuous animation, for smoother scroll/paint) */
     .ar-particles { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
     .ar-particle {
       position: absolute;
       background: var(--pc, rgba(0,255,225,0.6));
-      animation: ptFloat var(--dur, 6s) linear infinite;
-      animation-delay: var(--del, 0s);
+      opacity: 0.45;
       clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
-    }
-    @keyframes ptFloat {
-      0%   { opacity: 0;   transform: translateY(100vh) rotate(0deg); }
-      10%  { opacity: .6; }
-      90%  { opacity: .4; }
-      100% { opacity: 0;   transform: translateY(-20px) rotate(180deg); }
     }
 
     /* ── Back link ── */
@@ -596,7 +584,8 @@ const handleForgotPassword = () => {
       position: absolute; top: 0; left: 0; right: 0; height: 2px;
       background: linear-gradient(90deg,
         transparent 0%, var(--cp-cyan) 20%, var(--cp-yellow) 50%, var(--cp-pink) 80%, transparent 100%);
-      z-index: 10; animation: cpTrace 3s ease-in-out infinite;
+      z-index: 10;
+      opacity: .75;
       filter: blur(0.5px);
     }
     .ar-scene::after {
@@ -604,11 +593,8 @@ const handleForgotPassword = () => {
       position: absolute; bottom: 0; left: 0; right: 0; height: 1px;
       background: linear-gradient(90deg,
         transparent 0%, var(--cp-pink) 30%, var(--cp-cyan) 70%, transparent 100%);
-      z-index: 10; animation: cpTrace 3s ease-in-out infinite reverse;
-    }
-    @keyframes cpTrace {
-      0%,100% { opacity: .4; }
-      50%      { opacity: 1; }
+      z-index: 10;
+      opacity: .75;
     }
 
     /* ── Info panel ── */
@@ -637,49 +623,24 @@ const handleForgotPassword = () => {
       border-left: 1px solid rgba(0,255,225,0.1);
     }
 
-    /* ── Panel slide animations ── */
-    .ar-info-panel.anim-to-left  { animation: infoPanelToLeft  0.56s cubic-bezier(0.16,1,0.3,1) both; }
-    .ar-info-panel.anim-to-right { animation: infoPanelToRight 0.56s cubic-bezier(0.16,1,0.3,1) both; }
-    .ar-form-panel.anim-from-right { animation: formFromRight 0.56s cubic-bezier(0.16,1,0.3,1) both; }
-    .ar-form-panel.anim-from-left  { animation: formFromLeft  0.56s cubic-bezier(0.16,1,0.3,1) both; }
+    /* ── Panel slide animations (fast, event-driven — not continuous) ── */
+    .ar-info-panel.anim-to-left  { animation: infoPanelToLeft  0.32s cubic-bezier(0.16,1,0.3,1) both; }
+    .ar-info-panel.anim-to-right { animation: infoPanelToRight 0.32s cubic-bezier(0.16,1,0.3,1) both; }
+    .ar-form-panel.anim-from-right { animation: formFromRight 0.32s cubic-bezier(0.16,1,0.3,1) both; }
+    .ar-form-panel.anim-from-left  { animation: formFromLeft  0.32s cubic-bezier(0.16,1,0.3,1) both; }
 
     @keyframes infoPanelToLeft  { from { transform: translateX(340px); opacity: .1; } to { transform: translateX(0); opacity: 1; } }
     @keyframes infoPanelToRight { from { transform: translateX(-340px); opacity: .1; } to { transform: translateX(0); opacity: 1; } }
     @keyframes formFromRight    { from { transform: translateX(60px); opacity: 0; }   to { transform: translateX(0); opacity: 1; } }
     @keyframes formFromLeft     { from { transform: translateX(-60px); opacity: 0; }  to { transform: translateX(0); opacity: 1; } }
 
-    /* ── Content fade ── */
-    .ar-form-content.fade-out { animation: contentFadeOut 0.2s ease both; }
-    .ar-form-content.fade-in  { animation: contentFadeIn  0.26s ease 0.2s both; }
-    .ar-info-content.fade-out { animation: contentFadeOut 0.2s ease both; }
-    .ar-info-content.fade-in  { animation: contentFadeIn  0.26s ease 0.2s both; }
-    @keyframes contentFadeOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-8px); } }
-    @keyframes contentFadeIn  { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-
-    /* CRT on form panel */
-    .ar-form-panel::before {
-      content: ''; position: absolute; inset: 0;
-      background-image:
-        linear-gradient(rgba(0,255,225,0.012) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0,255,225,0.012) 1px, transparent 1px);
-      background-size: 40px 40px; pointer-events: none;
-    }
-    .ar-form-panel::after {
-      content: ''; position: absolute; inset: 0; pointer-events: none;
-      background: repeating-linear-gradient(
-        0deg, transparent, transparent 3px,
-        rgba(0,0,0,0.08) 3px, rgba(0,0,0,0.08) 4px
-      );
-      animation: crtFlicker 0.15s steps(1) infinite;
-    }
-    @keyframes crtFlicker {
-      0%   { opacity: 1; }
-      92%  { opacity: 1; }
-      93%  { opacity: .85; }
-      94%  { opacity: 1; }
-      96%  { opacity: .9; }
-      100% { opacity: 1; }
-    }
+    /* ── Content fade (fast, event-driven) ── */
+    .ar-form-content.fade-out { animation: contentFadeOut 0.12s ease both; }
+    .ar-form-content.fade-in  { animation: contentFadeIn  0.18s ease 0.12s both; }
+    .ar-info-content.fade-out { animation: contentFadeOut 0.12s ease both; }
+    .ar-info-content.fade-in  { animation: contentFadeIn  0.18s ease 0.12s both; }
+    @keyframes contentFadeOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-6px); } }
+    @keyframes contentFadeIn  { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 
     .ar-form {
       position: relative; z-index: 1;
@@ -715,31 +676,12 @@ const handleForgotPassword = () => {
     }
     .ar-sub::before { content: '> '; color: rgba(0,255,225,0.35); }
 
-    /* ── Glitch effect ── */
+    /* ── Glitch effect (kept static — no glitch animation) ── */
     .cp-glitch { position: relative; display: inline-block; }
     .cp-glitch::before, .cp-glitch::after {
       content: attr(data-text);
       position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-    }
-    .cp-glitch::before {
-      color: var(--cp-cyan); clip-path: inset(0 0 60% 0);
-      animation: glitch1 4s steps(1) infinite;
-    }
-    .cp-glitch::after {
-      color: var(--cp-pink); clip-path: inset(60% 0 0 0);
-      animation: glitch2 4s steps(1) infinite;
-    }
-    @keyframes glitch1 {
-      0%,85%,100% { transform: none; opacity: 0; }
-      86%          { transform: translateX(-3px); opacity: 1; }
-      88%          { transform: translateX(2px);  opacity: 1; }
-      90%          { transform: none; opacity: 0; }
-    }
-    @keyframes glitch2 {
-      0%,87%,100% { transform: none; opacity: 0; }
-      88%          { transform: translateX(3px);  opacity: 1; }
-      90%          { transform: translateX(-2px); opacity: 1; }
-      92%          { transform: none; opacity: 0; }
+      opacity: 0;
     }
 
     /* ── Alerts ── */
@@ -747,7 +689,7 @@ const handleForgotPassword = () => {
       width: 100%; padding: 9px 12px;
       font-size: .72rem; margin-bottom: 12px;
       display: flex; align-items: flex-start; gap: 8px; line-height: 1.55;
-      animation: alertIn .24s cubic-bezier(0.16,1,0.3,1);
+      animation: alertIn .18s ease both;
       font-family: 'Share Tech Mono', monospace;
       clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%);
     }
@@ -763,7 +705,7 @@ const handleForgotPassword = () => {
       color: #a0fff2;
       box-shadow: 0 0 18px rgba(0,255,225,0.08) inset;
     }
-    @keyframes alertIn { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: translateX(0); } }
+    @keyframes alertIn { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: translateX(0); } }
 
     /* ── Google button ── */
     .ar-google-socials {
@@ -801,7 +743,7 @@ const handleForgotPassword = () => {
       display: flex; align-items: center; justify-content: center; gap: 7px;
       color: rgba(255,255,255,0.5); font-size: .73rem;
       cursor: pointer; font-family: 'Share Tech Mono', monospace; letter-spacing: .04em;
-      transition: all .22s; position: relative; overflow: hidden;
+      transition: background .15s, border-color .15s, color .15s; position: relative; overflow: hidden;
       clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%);
     }
     .ar-social-btn:hover {
@@ -831,7 +773,7 @@ const handleForgotPassword = () => {
       position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
       color: rgba(0,255,225,0.28); pointer-events: none;
       display: flex; align-items: center;
-      transition: color .2s;
+      transition: color .15s;
     }
     .ar-field input, .ar-field select {
       width: 100%; height: 40px;
@@ -840,7 +782,7 @@ const handleForgotPassword = () => {
       padding: 0 11px 0 36px;
       color: var(--cp-text); font-size: .75rem;
       font-family: 'Share Tech Mono', monospace; outline: none;
-      transition: all .2s;
+      transition: background .15s, border-color .15s, box-shadow .15s;
       appearance: none; -webkit-appearance: none;
       letter-spacing: .04em;
       clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%);
@@ -901,7 +843,7 @@ const handleForgotPassword = () => {
       align-self: flex-end; font-size: .68rem; color: rgba(0,255,225,0.35);
       cursor: pointer; margin-bottom: 12px; text-decoration: none;
       font-family: 'Share Tech Mono', monospace; letter-spacing: .04em;
-      transition: color .2s, text-shadow .2s;
+      transition: color .15s;
     }
     .ar-forgot:hover {
       color: var(--cp-cyan);
@@ -917,19 +859,19 @@ const handleForgotPassword = () => {
       cursor: pointer; font-family: 'Orbitron', monospace;
       font-size: .72rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
       color: #000;
-      transition: transform .3s cubic-bezier(0.16,1,0.3,1), box-shadow .3s;
+      transition: transform .18s cubic-bezier(0.16,1,0.3,1), box-shadow .18s;
       will-change: transform;
       clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
     }
     .ar-submit-bg {
       position: absolute; inset: 0;
       background: linear-gradient(135deg, var(--cp-cyan) 0%, #00c8b0 50%, var(--cp-yellow) 100%);
-      transition: opacity .3s;
+      transition: opacity .18s;
     }
     .ar-submit-bg-hover {
       position: absolute; inset: 0;
       background: linear-gradient(135deg, var(--cp-yellow) 0%, var(--cp-cyan) 60%, #00ffd0 100%);
-      opacity: 0; transition: opacity .3s;
+      opacity: 0; transition: opacity .18s;
     }
     .ar-submit:hover:not(:disabled) .ar-submit-bg-hover { opacity: 1; }
     .ar-submit:hover:not(:disabled) {
@@ -955,7 +897,7 @@ const handleForgotPassword = () => {
     .ar-note a, .ar-note button {
       color: rgba(0,255,225,0.55); cursor: pointer; text-decoration: none;
       background: none; border: none; font: inherit; font-family: 'Share Tech Mono', monospace;
-      transition: color .2s, text-shadow .2s; padding: 0;
+      transition: color .15s; padding: 0;
     }
     .ar-note a:hover, .ar-note button:hover {
       color: var(--cp-cyan);
@@ -990,15 +932,12 @@ const handleForgotPassword = () => {
     .ar-corner-bl { bottom: 14px; left: 14px;
       border-bottom: 1px solid rgba(0,255,225,0.2); border-left: 1px solid rgba(0,255,225,0.2); }
 
-    .ar-shard { position: absolute; pointer-events: none; animation: nodeFloat var(--dur,7s) ease-in-out infinite; animation-delay: var(--del,0s); }
-    @keyframes nodeFloat {
-      0%,100% { transform: translateY(0) rotate(0deg); opacity: .3; }
-      50%      { transform: translateY(-18px) rotate(30deg); opacity: .9; }
-    }
-    .ar-shard-1 { top: 58px;   right: 22px;  --dur: 7s; --del: -2s; }
-    .ar-shard-2 { bottom: 70px; right: 16px; --dur: 5s; --del: 0s;  }
-    .ar-shard-3 { top: 155px;  left: 16px;  --dur: 9s; --del: -4s; }
-    .ar-shard-4 { bottom: 30px; left: 40px; --dur: 6s; --del: -1s; }
+    /* Shards: static (no continuous float animation) */
+    .ar-shard { position: absolute; pointer-events: none; opacity: 0.6; }
+    .ar-shard-1 { top: 58px;   right: 22px; }
+    .ar-shard-2 { bottom: 70px; right: 16px; }
+    .ar-shard-3 { top: 155px;  left: 16px; }
+    .ar-shard-4 { bottom: 30px; left: 40px; }
 
     .ar-info { position: relative; z-index: 2; width: 100%; text-align: center; }
 
@@ -1008,11 +947,6 @@ const handleForgotPassword = () => {
     .ar-logo-img {
       width: 68px; height: 68px; object-fit: contain;
       filter: drop-shadow(0 0 16px rgba(0,255,225,0.6)) drop-shadow(0 0 32px rgba(0,255,225,0.2));
-      animation: logoPulse 3s ease-in-out infinite;
-    }
-    @keyframes logoPulse {
-      0%,100% { filter: drop-shadow(0 0 12px rgba(0,255,225,0.5)); transform: scale(1); }
-      50%      { filter: drop-shadow(0 0 28px rgba(0,255,225,0.9)) drop-shadow(0 0 50px rgba(255,0,110,0.3)); transform: scale(1.04); }
     }
 
     .ar-brand-name {
@@ -1041,10 +975,8 @@ const handleForgotPassword = () => {
       width: 5px; height: 5px;
       background: var(--cp-cyan);
       box-shadow: 0 0 8px var(--cp-cyan);
-      animation: dotPulse 1.5s ease-in-out infinite;
       clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
     }
-    @keyframes dotPulse { 0%,100% { opacity: .4; transform: scale(1); } 50% { opacity: 1; transform: scale(1.4); } }
 
     .ar-info-title {
       font-family: 'Orbitron', monospace;
@@ -1087,7 +1019,7 @@ const handleForgotPassword = () => {
       padding: 8px 11px;
       font-size: .68rem; color: rgba(224,248,255,0.4);
       font-family: 'Share Tech Mono', monospace; letter-spacing: .03em;
-      transition: all .28s;
+      transition: background .18s, border-color .18s, color .18s, transform .18s;
       clip-path: polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 0 100%);
     }
     .ar-chip:hover {
@@ -1107,13 +1039,13 @@ const handleForgotPassword = () => {
       color: var(--cp-pink); font-size: .7rem; font-weight: 700;
       font-family: 'Orbitron', monospace; letter-spacing: .1em; text-transform: uppercase;
       position: relative; overflow: hidden;
-      transition: all .28s cubic-bezier(0.16,1,0.3,1);
+      transition: border-color .18s, transform .18s, box-shadow .18s, text-shadow .18s;
       clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
     }
     .ar-info-btn::before {
       content: ''; position: absolute; inset: 0;
       background: linear-gradient(135deg, rgba(255,0,110,0.15), rgba(255,0,110,0.08));
-      opacity: 0; transition: opacity .28s;
+      opacity: 0; transition: opacity .18s;
     }
     .ar-info-btn:hover::before { opacity: 1; }
     .ar-info-btn:hover {
@@ -1223,15 +1155,9 @@ const handleForgotPassword = () => {
         background:
           linear-gradient(90deg, transparent, rgba(0,255,225,0.22), transparent),
           repeating-linear-gradient(90deg, transparent 0 12px, rgba(245,255,0,0.08) 12px 13px);
-        opacity: 0.75;
+        opacity: 0.55;
         filter: blur(0.2px);
         pointer-events: none;
-        animation: stepScan 4.5s linear infinite;
-      }
-      @keyframes stepScan {
-        0% { transform: translateX(-34%); opacity: 0.2; }
-        45% { opacity: 0.9; }
-        100% { transform: translateX(34%); opacity: 0.2; }
       }
       .ar-scene.signup-mode .ar-step-card {
         border-color: rgba(0,255,225,0.32);
@@ -1335,7 +1261,7 @@ const handleForgotPassword = () => {
           0 0 60px rgba(0,255,225,0.03) inset;
       }
 
-      /* HUD: animated top trace line */
+      /* HUD: top trace line (static) */
       .ar-mobile-header::after {
         content: '';
         position: absolute;
@@ -1343,7 +1269,6 @@ const handleForgotPassword = () => {
         background: linear-gradient(90deg,
           transparent 0%, var(--cp-cyan) 30%, var(--cp-pink) 70%, transparent 100%);
         opacity: 0.35;
-        animation: cpTrace 3s ease-in-out infinite;
       }
 
       .ar-mh-left {
@@ -1352,7 +1277,6 @@ const handleForgotPassword = () => {
       .ar-mh-logo-img {
         width: 32px; height: 32px; object-fit: contain;
         filter: drop-shadow(0 0 10px rgba(0,255,225,0.9));
-        animation: logoPulse 3s ease-in-out infinite;
         flex-shrink: 0;
       }
       .ar-mh-brand {
@@ -1372,7 +1296,7 @@ const handleForgotPassword = () => {
       }
       .ar-mh-dot {
         width: 5px; height: 5px; background: var(--cp-cyan); border-radius: 50%;
-        box-shadow: 0 0 8px var(--cp-cyan); animation: dotPulse 1.5s ease-in-out infinite;
+        box-shadow: 0 0 8px var(--cp-cyan);
         flex-shrink: 0;
       }
 
@@ -1406,13 +1330,13 @@ const handleForgotPassword = () => {
         pointer-events: none;
       }
 
-      /* Hero: cyan glow pulse at top */
+      /* Hero: cyan glow line at top (static) */
       .ar-mob-hero::after {
         content: '';
         position: absolute; top: -1px; left: 10%; right: 10%; height: 2px;
         background: linear-gradient(90deg, transparent, var(--cp-cyan), transparent);
-        animation: cpTrace 2.5s ease-in-out infinite;
         filter: blur(1px);
+        opacity: 0.7;
       }
 
       .ar-mob-logo-ring {
@@ -1423,7 +1347,7 @@ const handleForgotPassword = () => {
         flex-shrink: 0;
       }
 
-      /* Rotating outer hex ring */
+      /* Outer hex ring (static) */
       .ar-mob-logo-ring::before {
         content: '';
         position: absolute; inset: -6px;
@@ -1431,22 +1355,18 @@ const handleForgotPassword = () => {
         border-top-color: var(--cp-cyan);
         border-right-color: rgba(0,255,225,0.4);
         border-radius: 50%;
-        animation: ringRotate 3s linear infinite;
       }
-      /* Counter-rotating inner ring */
+      /* Inner ring (static) */
       .ar-mob-logo-ring::after {
         content: '';
         position: absolute; inset: 2px;
         border: 1px dashed rgba(255,0,110,0.3);
         border-radius: 50%;
-        animation: ringRotate 6s linear infinite reverse;
       }
-      @keyframes ringRotate { to { transform: rotate(360deg); } }
 
       .ar-mob-logo-ring img {
         width: 58px; height: 58px; object-fit: contain;
         filter: drop-shadow(0 0 18px rgba(0,255,225,0.8)) drop-shadow(0 0 40px rgba(0,255,225,0.3));
-        animation: logoPulse 3s ease-in-out infinite;
         position: relative; z-index: 1;
       }
 
@@ -1526,7 +1446,7 @@ const handleForgotPassword = () => {
         clip-path: polygon(8px 0%, calc(100% - 8px) 0%, 100% 8px, 100% 100%, calc(100% - 8px) calc(100%), 8px 100%, 0 calc(100% - 8px), 0 8px);
       }
 
-      /* Sliding highlight */
+      /* Sliding highlight (fast, event-driven) */
       .ar-mob-tab-track::before {
         content: '';
         position: absolute;
@@ -1535,7 +1455,7 @@ const handleForgotPassword = () => {
         width: 50%;
         background: linear-gradient(135deg, rgba(0,255,225,0.12), rgba(0,255,225,0.05));
         border-right: 1px solid rgba(0,255,225,0.2);
-        transition: left 0.32s cubic-bezier(0.16,1,0.3,1);
+        transition: left 0.2s cubic-bezier(0.16,1,0.3,1);
         z-index: 0;
       }
       .ar-mob-tab-track.signup-active::before {
@@ -1553,7 +1473,7 @@ const handleForgotPassword = () => {
         font-family: 'Orbitron', monospace;
         font-size: 0.57rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
         cursor: pointer;
-        transition: color 0.24s, text-shadow 0.24s;
+        transition: color 0.15s;
         display: flex; align-items: center; justify-content: center; gap: 7px;
         position: relative; z-index: 1;
         -webkit-tap-highlight-color: transparent;
@@ -1574,7 +1494,7 @@ const handleForgotPassword = () => {
       .ar-mob-tab-bar {
         position: absolute; bottom: 0; left: 15%; right: 15%; height: 2px;
         background: var(--cp-cyan); box-shadow: 0 0 10px var(--cp-cyan);
-        opacity: 0; transition: opacity 0.24s; border-radius: 1px;
+        opacity: 0; transition: opacity 0.15s; border-radius: 1px;
       }
       .ar-mob-tab--active .ar-mob-tab-bar { opacity: 1; }
       .ar-mob-tab--signup.ar-mob-tab--active .ar-mob-tab-bar {
@@ -1588,7 +1508,7 @@ const handleForgotPassword = () => {
       }
 
       /* ─────────────────────────────────────────────
-         FEATURE TICKER
+         FEATURE TICKER (kept — lightweight transform-based marquee)
       ───────────────────────────────────────────── */
       .ar-mob-ticker {
         display: flex;
@@ -1642,7 +1562,7 @@ const handleForgotPassword = () => {
           rgba(5,5,18,0.98);
       }
 
-      /* Replace desktop CRT effects with clean corner accents */
+      /* Replace desktop CRT effects with clean, static corner accents */
       .ar-form-panel::before {
         content: '';
         position: absolute;
@@ -1650,7 +1570,7 @@ const handleForgotPassword = () => {
         width: auto; bottom: auto;
         background: linear-gradient(90deg, transparent 5%, rgba(0,255,225,0.15) 30%, rgba(0,255,225,0.08) 70%, transparent 95%);
         pointer-events: none; z-index: 1; display: block;
-        box-shadow: none; animation: none;
+        box-shadow: none;
         background-size: auto; background-image: none;
         background: linear-gradient(90deg, transparent 5%, rgba(0,255,225,0.15) 30%, rgba(0,255,225,0.08) 70%, transparent 95%);
       }
@@ -1662,7 +1582,7 @@ const handleForgotPassword = () => {
         top: auto; width: auto;
         background: linear-gradient(90deg, transparent 5%, rgba(255,0,110,0.1) 40%, rgba(255,0,110,0.06) 60%, transparent 95%);
         pointer-events: none; z-index: 1; display: block;
-        animation: none; background-size: auto;
+        background-size: auto;
       }
 
       /* ─────────────────────────────────────────────
@@ -1683,19 +1603,19 @@ const handleForgotPassword = () => {
           0 20px 60px rgba(0,0,0,0.7);
       }
 
-      /* Animated cyan corner accent on the card */
+      /* Static cyan corner accent on the card */
       .ar-form::before {
         content: '';
         position: absolute; top: 0; left: 0; right: 0; height: 2px;
         background: linear-gradient(90deg,
           var(--cp-cyan) 0%, rgba(0,255,225,0.3) 40%, rgba(255,0,110,0.2) 70%, transparent 100%);
-        animation: cpTrace 3s ease-in-out infinite;
         filter: blur(0.5px);
+        opacity: 0.85;
         clip-path: none;
         border: none; box-shadow: none;
       }
 
-      /* Glowing bottom-right corner dot */
+      /* Bottom-right corner dot (static) */
       .ar-form::after {
         content: '';
         position: absolute; bottom: 12px; right: 12px;
@@ -1703,7 +1623,6 @@ const handleForgotPassword = () => {
         background: var(--cp-pink);
         box-shadow: 0 0 10px var(--cp-pink);
         clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
-        animation: dotPulse 2s ease-in-out infinite;
       }
 
       /* Mode label badge inside form */
@@ -1732,7 +1651,7 @@ const handleForgotPassword = () => {
       .ar-note  { font-size: 0.65rem; }
       .ar-divider { font-size: 0.58rem; }
 
-      /* Future mobile console skin */
+      /* Future mobile console skin (static — animations removed for performance) */
       .ar-bg {
         background:
           radial-gradient(circle at 20% 6%, rgba(0,255,225,0.22), transparent 34%),
@@ -1752,7 +1671,6 @@ const handleForgotPassword = () => {
           conic-gradient(from 90deg at 50% 50%, transparent 0deg, rgba(0,255,225,0.14) 38deg, transparent 82deg, rgba(255,0,110,0.12) 145deg, transparent 220deg, rgba(245,255,0,0.07) 300deg, transparent 360deg);
         filter: blur(28px);
         opacity: 0.34;
-        animation: none;
       }
       .ar-bg::after {
         background-image:
@@ -1760,14 +1678,12 @@ const handleForgotPassword = () => {
           linear-gradient(65deg, transparent 0 58%, rgba(255,0,110,0.075) 58% 59%, transparent 59% 100%);
         background-size: 170px 170px;
         opacity: 0.26;
-        animation: none;
       }
       .ar-grid {
         background-size: 34px 34px;
         transform: none;
         transform-origin: center;
         opacity: 0.22;
-        animation: none;
       }
       .ar-scanlines {
         display: none;
@@ -1776,7 +1692,6 @@ const handleForgotPassword = () => {
         border-radius: 999px;
         clip-path: none;
         filter: none;
-        animation-name: mobileParticleLift;
       }
 
       .ar-mobile-header {
@@ -1804,7 +1719,7 @@ const handleForgotPassword = () => {
         left: 18px;
         right: 18px;
         bottom: 6px;
-        animation: mobileTraceSweep 2.8s ease-in-out infinite;
+        opacity: 0.6;
       }
       .ar-mh-logo-img {
         width: 38px;
@@ -1852,7 +1767,7 @@ const handleForgotPassword = () => {
         right: 24%;
         height: 3px;
         background: linear-gradient(90deg, transparent, rgba(245,255,0,0.9), rgba(0,255,225,0.95), transparent);
-        animation: mobileTraceSweep 3.2s ease-in-out infinite;
+        opacity: 0.85;
       }
       .ar-mob-logo-ring {
         width: 96px;
@@ -1881,12 +1796,10 @@ const handleForgotPassword = () => {
           linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.02)),
           rgba(0,0,0,0.36);
         border: 1px solid rgba(255,255,255,0.13);
-        animation: mobileLogoFloat 4s ease-in-out infinite;
       }
       .ar-mob-hero-title {
         font-size: 1.8rem;
         letter-spacing: 0.2em;
-        animation: mobileTitleGlitch 5.5s steps(1,end) infinite;
       }
       .ar-mob-hero-sub {
         color: rgba(224,248,255,0.58);
@@ -1949,7 +1862,7 @@ const handleForgotPassword = () => {
       .ar-mob-tab svg {
         width: 18px;
         height: 18px;
-        transition: transform 0.24s ease;
+        transition: transform 0.18s ease;
       }
       .ar-mob-tab--active svg {
         transform: translateY(-1px) scale(1.08);
@@ -2000,7 +1913,6 @@ const handleForgotPassword = () => {
           0 0 0 1px rgba(0,255,225,0.05),
           inset 0 1px 0 rgba(255,255,255,0.13),
           inset 0 -32px 80px rgba(0,255,225,0.025);
-        animation: none;
       }
       .ar-form::before {
         top: 10px;
@@ -2008,7 +1920,7 @@ const handleForgotPassword = () => {
         right: 18px;
         height: 1px;
         border-radius: 999px;
-        animation: mobileTraceSweep 2.6s ease-in-out infinite;
+        opacity: 0.7;
       }
       .ar-form::after {
         bottom: 16px;
@@ -2061,14 +1973,6 @@ const handleForgotPassword = () => {
         overflow: hidden;
         box-shadow: 0 16px 38px rgba(0,255,225,0.16), 0 0 0 1px rgba(255,255,255,0.08);
       }
-      .ar-submit::after {
-        content: '';
-        position: absolute;
-        inset: 0;
-        background: linear-gradient(110deg, transparent 0 34%, rgba(255,255,255,0.4) 45%, transparent 56% 100%);
-        transform: translateX(-120%);
-        animation: mobileButtonSheen 3.6s ease-in-out infinite;
-      }
       .ar-submit-inner {
         position: relative;
         z-index: 1;
@@ -2094,7 +1998,6 @@ const handleForgotPassword = () => {
         background:
           radial-gradient(circle at 18% 0%, rgba(245,255,0,0.12), transparent 30%),
           linear-gradient(90deg, transparent, rgba(0,255,225,0.08), transparent);
-        animation: mobileTraceSweep 3.4s ease-in-out infinite;
       }
       .ar-step-progress {
         height: 42px;
@@ -2104,7 +2007,7 @@ const handleForgotPassword = () => {
         background: rgba(255,255,255,0.045);
       }
       .ar-step-dot.active {
-        animation: mobileStepPulse 1.6s ease-in-out infinite;
+        box-shadow: 0 0 24px rgba(0,255,225,0.36);
       }
       .ar-step-icon {
         border-radius: 16px;
@@ -2114,92 +2017,25 @@ const handleForgotPassword = () => {
         position: relative;
         overflow: hidden;
       }
-      .ar-step-next::after {
-        content: '';
-        position: absolute;
-        inset: 0;
-        background: linear-gradient(110deg, transparent 0 36%, rgba(255,255,255,0.44) 48%, transparent 60% 100%);
-        transform: translateX(-120%);
-        animation: mobileButtonSheen 3.1s ease-in-out infinite;
-      }
-
-      @keyframes mobileAuroraSpin {
-        to { transform: rotate(360deg); }
-      }
-      @keyframes mobileCircuitDrift {
-        to { background-position: 170px 170px, -170px 170px; }
-      }
-      @keyframes mobileGridRush {
-        from { background-position: 0 0; }
-        to { background-position: 0 68px; }
-      }
-      @keyframes mobileParticleLift {
-        0% { opacity: 0; transform: translate3d(0, 105vh, 0) scale(0.7); }
-        12% { opacity: 0.85; }
-        80% { opacity: 0.45; }
-        100% { opacity: 0; transform: translate3d(18px, -12vh, 0) scale(1.25); }
-      }
-      @keyframes mobileTraceSweep {
-        0%, 100% { opacity: 0.18; transform: scaleX(0.54); }
-        48% { opacity: 1; transform: scaleX(1); }
-      }
-      @keyframes mobileLogoFloat {
-        0%, 100% { transform: translateY(0) scale(1); }
-        50% { transform: translateY(-5px) scale(1.03); }
-      }
-      @keyframes mobileTitleGlitch {
-        0%, 91%, 100% { transform: translateX(0); filter: none; }
-        92% { transform: translateX(1px); filter: hue-rotate(35deg); }
-        93% { transform: translateX(-2px); }
-        94% { transform: translateX(0); filter: none; }
-      }
-      @keyframes mobileCardFloat {
-        0%, 100% { transform: translateY(0); }
-        50% { transform: translateY(-4px); }
-      }
-      @keyframes mobileButtonSheen {
-        0%, 55% { transform: translateX(-125%); }
-        78%, 100% { transform: translateX(125%); }
-      }
-      @keyframes mobileStepPulse {
-        0%, 100% { box-shadow: 0 0 18px rgba(0,255,225,0.34); }
-        50% { box-shadow: 0 0 30px rgba(245,255,0,0.38); }
-      }
 
       @media (prefers-reduced-motion: reduce) {
-        .ar-bg::before,
-        .ar-bg::after,
-        .ar-grid,
-        .ar-particle,
-        .ar-mobile-header::after,
-        .ar-mob-hero::after,
-        .ar-mob-logo-ring::before,
-        .ar-mob-logo-ring::after,
-        .ar-mob-logo-ring img,
-        .ar-mob-hero-title,
-        .ar-mob-ticker-inner,
-        .ar-form,
-        .ar-form::before,
-        .ar-submit::after,
-        .ar-step-card::before,
-        .ar-step-dot.active,
-        .ar-step-next::after {
+        .ar-mob-ticker-inner {
           animation: none !important;
         }
       }
 
-      /* Mobile form transition */
+      /* Mobile form transition (fast, event-driven) */
       .ar-info-panel.anim-to-left,
       .ar-info-panel.anim-to-right { animation: none !important; }
 
-      .ar-form-panel.anim-from-right { animation: mobFormFromRight 0.34s cubic-bezier(0.16,1,0.3,1) both; }
-      .ar-form-panel.anim-from-left  { animation: mobFormFromLeft  0.34s cubic-bezier(0.16,1,0.3,1) both; }
+      .ar-form-panel.anim-from-right { animation: mobFormFromRight 0.2s cubic-bezier(0.16,1,0.3,1) both; }
+      .ar-form-panel.anim-from-left  { animation: mobFormFromLeft  0.2s cubic-bezier(0.16,1,0.3,1) both; }
       @keyframes mobFormFromRight {
-        from { transform: translateX(30px); opacity: 0; }
+        from { transform: translateX(20px); opacity: 0; }
         to   { transform: translateX(0);   opacity: 1; }
       }
       @keyframes mobFormFromLeft {
-        from { transform: translateX(-30px); opacity: 0; }
+        from { transform: translateX(-20px); opacity: 0; }
         to   { transform: translateX(0);     opacity: 1; }
       }
     }
@@ -2255,13 +2091,6 @@ const handleForgotPassword = () => {
 
       .ar-mob-ticker-inner {
         will-change: transform;
-      }
-
-      .ar-mob-hero-title,
-      .ar-mh-logo-img,
-      .ar-mob-logo-ring::before,
-      .ar-mob-logo-ring::after {
-        animation-duration: 5s;
       }
 
       .ar-form-panel,
@@ -2320,8 +2149,6 @@ const handleForgotPassword = () => {
               width: particle.size,
               height: particle.size,
               "--pc": particle.color,
-              "--dur": particle.duration,
-              "--del": particle.delay,
             }}
           />
         ))}
@@ -2503,15 +2330,15 @@ const handleForgotPassword = () => {
                               {index < signupStep ? I.check : index + 1}
                             </button>
                             {index < signupSteps.length - 1 && (
-                              <div className="ar-step-line"><motion.span animate={{ width: signupStep > index ? "100%" : "0%" }} transition={{ duration: 0.35 }} /></div>
+                              <div className="ar-step-line"><motion.span animate={{ width: signupStep > index ? "100%" : "0%" }} transition={{ duration: 0.22 }} /></div>
                             )}
                           </Fragment>
                         ))}
                       </div>
                       <div className="ar-step-head">
-                        <motion.span className="ar-step-icon" key={signupSteps[signupStep].key} initial={{ rotate: -10, scale: 0.9 }} animate={{ rotate: 0, scale: 1 }} transition={{ type: "spring", stiffness: 260, damping: 18 }}>
+                        <span className="ar-step-icon">
                           {signupSteps[signupStep].icon}
-                        </motion.span>
+                        </span>
                         <div>
                           <p className="ar-step-kicker">{signupSteps[signupStep].label}</p>
                           <h3 className="ar-step-title">{signupSteps[signupStep].title}</h3>
@@ -2520,7 +2347,7 @@ const handleForgotPassword = () => {
                       </div>
                       <div className="ar-step-body">
                         <AnimatePresence mode="wait" custom={1}>
-                          <motion.div key={signupSteps[signupStep].key} custom={1} variants={mobileStepVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.28, ease: "easeOut" }}>
+                          <motion.div key={signupSteps[signupStep].key} custom={1} variants={mobileStepVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.16, ease: "easeOut" }}>
                             {signupStep === 0 && (
                               <div className="ar-row">
                                 <div className="ar-field">
