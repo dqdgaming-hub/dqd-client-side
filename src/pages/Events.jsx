@@ -393,7 +393,9 @@ const Events = () => {
 
         @media (max-width: 820px) {
           .events-zone {
-            padding: 2.4rem 0.85rem 3rem;
+            min-height: 100vh;
+            min-height: 100dvh;
+            padding: 2.4rem 0.85rem 1.25rem;
           }
 
           .events-header {
@@ -418,7 +420,7 @@ const Events = () => {
             display: flex;
             gap: 0.95rem;
             overflow-x: auto;
-            padding: 0.25rem 0.1rem 1rem;
+            padding: 0.25rem 0.1rem 0.25rem;
             scroll-snap-type: x mandatory;
             scrollbar-width: none;
           }

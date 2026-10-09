@@ -8,7 +8,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'https://api.dqdgaming.com',
+        target: 'http://localhost:8000/api',
         changeOrigin: true,
       },
     },

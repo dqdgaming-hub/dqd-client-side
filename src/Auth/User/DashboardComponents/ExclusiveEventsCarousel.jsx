@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, lazy, Suspense } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 
 // ─── Fonts ────────────────────────────────────────────────────────────────────
 const FONT_LINK = "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap";
@@ -54,13 +55,29 @@ const SaveIcon = ({ saved }) => (
 // ─── Normalizer ───────────────────────────────────────────────────────────────
 function normalizeEvent(ev, idx) {
   return {
-    id:          ev.id ?? idx,
+    id:          `event-${ev.id ?? idx}`,
+    type:        "event",
     title:       ev.title || ev.event_title || "Upcoming Event",
     date:        ev.date || ev.event_date || "",
     image:       ev.image || ev.event_image || ev.cover || "",
     description: ev.description || ev.summary || "",
     place:       ev.place || ev.location || ev.venue || "",
     tag:         ev.tag || ev.category || ev.type || "Event",
+  };
+}
+
+function normalizeGame(game, idx) {
+  return {
+    id:          `game-${game.id ?? idx}`,
+    type:        "game",
+    gameId:      game.id,
+    title:       game.name || "Featured Game",
+    date:        "",
+    image:       game.image || game.cover || "",
+    description: game.description || "",
+    place:       "",
+    tag:         game.category_name || "Game",
+    price:       game.price_per_hour,
   };
 }
 
@@ -122,7 +139,7 @@ function LazyImage({ src, alt, style }) {
 }
 
 // ─── Slide ────────────────────────────────────────────────────────────────────
-function Slide({ ev, isActive, isSaved, onSave, reducedMotion }) {
+function Slide({ ev, isActive, isSaved, onSave, onExploreGame, reducedMotion }) {
   const dur = reducedMotion ? 0.15 : 0.7;
   const easeOut = [0.22, 1, 0.36, 1];
 
@@ -234,6 +251,11 @@ function Slide({ ev, isActive, isSaved, onSave, reducedMotion }) {
                   <CalIcon />{ev.date}
                 </span>
               )}
+              {ev.type === "game" && ev.price != null && (
+                <span style={{ color: T.muted, fontFamily: T.sans, fontSize: "0.75rem", fontWeight: 400, letterSpacing: "0.07em", textTransform: "uppercase" }}>
+                  ₹{ev.price} / hour
+                </span>
+              )}
             </motion.div>
 
             {/* Hairline divider */}
@@ -269,6 +291,7 @@ function Slide({ ev, isActive, isSaved, onSave, reducedMotion }) {
               style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}
             >
               <motion.button
+                onClick={ev.type === "game" ? onExploreGame : undefined}
                 whileHover={reducedMotion ? {} : { scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
                 style={{
@@ -290,27 +313,29 @@ function Slide({ ev, isActive, isSaved, onSave, reducedMotion }) {
                 onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = T.gold; }}
               >
                 <LinkIcon />
-                Reserve a Spot
+                {ev.type === "game" ? "Explore Game" : "Reserve a Spot"}
               </motion.button>
 
-              <motion.button
-                onClick={onSave}
-                whileHover={reducedMotion ? {} : { scale: 1.08 }}
-                whileTap={{ scale: 0.93 }}
-                aria-label={isSaved ? "Remove from saved" : "Save event"}
-                style={{
-                  width: "42px", height: "42px",
-                  borderRadius: "2px",
-                  border: `1px solid ${isSaved ? T.gold : "rgba(255,255,255,0.22)"}`,
-                  background: isSaved ? T.goldDim : "transparent",
-                  color: isSaved ? T.gold : T.muted,
-                  display: "grid", placeItems: "center",
-                  cursor: "pointer",
-                  transition: "all 0.22s ease",
-                }}
-              >
-                <SaveIcon saved={isSaved} />
-              </motion.button>
+              {ev.type !== "game" && (
+                <motion.button
+                  onClick={onSave}
+                  whileHover={reducedMotion ? {} : { scale: 1.08 }}
+                  whileTap={{ scale: 0.93 }}
+                  aria-label={isSaved ? "Remove from saved" : "Save event"}
+                  style={{
+                    width: "42px", height: "42px",
+                    borderRadius: "2px",
+                    border: `1px solid ${isSaved ? T.gold : "rgba(255,255,255,0.22)"}`,
+                    background: isSaved ? T.goldDim : "transparent",
+                    color: isSaved ? T.gold : T.muted,
+                    display: "grid", placeItems: "center",
+                    cursor: "pointer",
+                    transition: "all 0.22s ease",
+                  }}
+                >
+                  <SaveIcon saved={isSaved} />
+                </motion.button>
+              )}
             </motion.div>
           </div>
         </motion.div>
@@ -488,13 +513,16 @@ function Dots({ count, active, onSelect }) {
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-export default function ExclusiveEventsCarousel({ events, autoPlayMs = 6000 }) {
+export default function ExclusiveEventsCarousel({ events, games, autoPlayMs = 6000 }) {
   const reducedMotion = useReducedMotion();
+  const navigate = useNavigate();
   const timerRef = useRef(null);
 
-  // Validation + normalization
-  const rawList = Array.isArray(events) ? events : [];
-  const list = rawList.map(normalizeEvent).filter(Boolean);
+  const eventList = (Array.isArray(events) ? events : []).map(normalizeEvent);
+  const gameList = (Array.isArray(games) ? games : [])
+    .filter(game => game && !game.maintenance_mode && game.id != null)
+    .map(normalizeGame);
+  const list = [...eventList, ...gameList];
 
   const [active, setActive]     = useState(0);
   const [saved, setSaved]       = useState({});
@@ -536,7 +564,7 @@ export default function ExclusiveEventsCarousel({ events, autoPlayMs = 6000 }) {
     touchStart.current = null;
   };
 
-  if (!list.length) return <EmptyState message="No events scheduled — check back soon." />;
+  if (!list.length) return <EmptyState message="No featured events or games right now." />;
 
   return (
     <>
@@ -547,7 +575,7 @@ export default function ExclusiveEventsCarousel({ events, autoPlayMs = 6000 }) {
       `}</style>
 
       <section
-        aria-label="Exclusive events carousel"
+        aria-label="Featured events and games carousel"
         onMouseEnter={() => setPaused(true)}
         onMouseLeave={() => setPaused(false)}
         onTouchStart={handleTouchStart}
@@ -570,6 +598,7 @@ export default function ExclusiveEventsCarousel({ events, autoPlayMs = 6000 }) {
             isActive={i === safeActive}
             isSaved={!!saved[ev.id]}
             onSave={() => setSaved(s => ({ ...s, [ev.id]: !s[ev.id] }))}
+            onExploreGame={() => navigate(`/user/games/${ev.gameId}`)}
             reducedMotion={reducedMotion}
           />
         ))}

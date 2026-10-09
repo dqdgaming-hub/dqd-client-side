@@ -1,8 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import emailjs from "@emailjs/browser";
-import { emailjsForgotPassword } from "../Auth/User/DashboardComponents/emailjsConfig";
 import {
     forgotPassword,
     verifyForgotOTP,
@@ -414,13 +412,7 @@ export default function ForgotPassword() {
         setError("");
         try {
             setLoading(true);
-            const res = await forgotPassword({ email: form.email });
-            await emailjs.send(
-                emailjsForgotPassword.serviceId,
-                emailjsForgotPassword.templateId,
-                { email: form.email, otp: res.otp, app_name: "DQD Gaming" },
-                emailjsForgotPassword.publicKey
-            );
+            await forgotPassword({ email: form.email });
             setStep(2);
         } catch (err) {
             setError(err.response?.data?.detail || err.response?.data?.message || "Failed to send OTP.");

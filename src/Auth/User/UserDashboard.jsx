@@ -188,7 +188,7 @@ export default function UserDashboard() {
         <div className="dqdash-body" style={{ paddingTop: 0 }}>
           <DashboardWelcome user={data.user_details} stats={data.dashboard_stats} />
           <div className="dqdash-carousel-fullbleed" >
-  <ExclusiveEventsCarousel events={data.exclusive_events} />
+  <ExclusiveEventsCarousel events={data.exclusive_events} games={data.games_list} />
 </div>
 
           <DashboardBookings upcoming={data.upcoming_booking} recent={data.recent_bookings} />

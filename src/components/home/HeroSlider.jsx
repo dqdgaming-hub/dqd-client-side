@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { API_ORIGIN } from "../../api/config";
 
 /**
  * HeroSlider
@@ -26,7 +27,6 @@ import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
  *     "sign-in required" overlay, then redirects to signInUrl.
  */
 
-const BASE_URL = "https://api.dqdgaming.com"; // change to your API base URL
 const MOBILE_BREAKPOINT = 640;
 const AUTOPLAY_MS = 5200;
 const PARTICLE_COUNT = 26;
@@ -760,8 +760,8 @@ const CSS = `
 /** Resolve image URL — handles both absolute and relative paths */
 function resolveImage(url) {
   if (!url) return "";
-  if (url.startsWith("http")) return url;
-  return `${BASE_URL}${url}`;
+  if (/^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(url)) return url;
+  return new URL(url, `${API_ORIGIN}/`).href;
 }
 
 /**

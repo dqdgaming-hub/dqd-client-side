@@ -136,7 +136,7 @@ const QUICK_LINKS = [
   { label: "Bookings",   sectionId: "section-bookings" },
   { label: "Games",      sectionId: "section-games"    },
   { label: "Combos",     sectionId: "section-combos"   },
-  { label: "Spinner",    sectionId: "section-spinner"  },
+  // { label: "Spinner",    sectionId: "section-spinner"  },
   { label: "Streamings", sectionId: "section-streams"  },
 ];
 
@@ -151,8 +151,8 @@ const ACCOUNT_LINKS = [
   { label: "Edit Profile",    href: "/user/profile-settings" },
   { label: "Loyalty Points",  href: "/user/claim-points" },
   { label: "Notifications",   href: "/user/notifications" },
-  { label: "Privacy Policy",  href: "/privacy" },
-  { label: "Contact Us",      href: "#contact" },
+  { label: "Privacy Policy",  href: "/privacy-policy" },
+  { label: "Contact Us",      href: "/contact-us" },
 ];
 
 /* ══════════════════════════════════════════════════════

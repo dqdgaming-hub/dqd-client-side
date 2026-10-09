@@ -150,7 +150,7 @@ function scrollToSection(sectionId) {
 const ACCOUNT_LINKS = [
   { label: "Edit Profile",    href: "/user/profile-settings" },
   { label: "Loyalty Points",  href: "/user/claim-points" },
-  { label: "Notifications",   href: "/user/notifications" },
+  // { label: "Notifications",   href: "/user/notifications" },
   { label: "Privacy Policy",  href: "/privacy-policy" },
   { label: "Contact Us",      href: "/contact-us" },
 ];

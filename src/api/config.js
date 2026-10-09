@@ -5,7 +5,7 @@
 // ============================================================
 
 export const API_BASE_URL =
-  import.meta.env.VITE_API_URL || 'https://api.dqdgaming.com/api'
+  import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
 
 // Root origin (no /api suffix) — for absolute media/image URLs
 // the backend returns as relative paths (e.g. image.url).

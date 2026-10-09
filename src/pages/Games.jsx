@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { getHomePage } from "../components/api/homeapi";
 
 const Icon = ({ children, className = "", style, size = 24 }) => (
@@ -287,6 +288,7 @@ const groupCategoriesByType = (categories) => {
 };
 
 function GameBanner({ game, accent, glow }) {
+  const navigate = useNavigate();
   const [hovered, setHovered] = useState(false);
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
   const cardRef = useRef(null);
@@ -345,7 +347,11 @@ function GameBanner({ game, accent, glow }) {
             INR {game.price_per_hour}
             <span className="price-unit">/hr</span>
           </span>
-          <button className="book-btn" style={{ background: accent, boxShadow: `0 0 20px ${glow}` }}>
+          <button
+            className="book-btn"
+            onClick={() => navigate("/sign-in")}
+            style={{ background: accent, boxShadow: `0 0 20px ${glow}` }}
+          >
             BOOK NOW
           </button>
         </div>
@@ -429,7 +435,7 @@ function CategoryBanner({ categoryGroup, index }) {
       </button>
 
       <div
-        className="games-grid-wrap"
+        className={`games-grid-wrap ${expanded ? "is-expanded" : ""}`}
         style={{
           maxHeight: expanded ? "800px" : "0px",
           opacity: expanded ? 1 : 0,
@@ -922,6 +928,16 @@ export default function Games() {
           .category-header { padding: 16px; }
           .cat-icon svg { width: 26px; height: 26px; }
           .game-count-pill { display: none; }
+          .games-grid-wrap.is-expanded {
+            max-height: min(70svh, 560px) !important;
+            overflow-y: auto !important;
+            overscroll-behavior: contain;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(0,240,255,0.7) rgba(5,5,16,0.6);
+          }
+          .games-grid-wrap.is-expanded::-webkit-scrollbar { width: 6px; }
+          .games-grid-wrap.is-expanded::-webkit-scrollbar-track { background: rgba(5,5,16,0.6); }
+          .games-grid-wrap.is-expanded::-webkit-scrollbar-thumb { background: rgba(0,240,255,0.7); border-radius: 3px; }
           .games-grid {
             grid-template-columns: 1fr;
             padding: 0 12px 20px;
