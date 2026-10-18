@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 
+import { CalendarDays, Play, Square, Star, Timer, Users } from "lucide-react";
 const GOLD   = "#D4AF37";
 const GOLDHI = "#F4D886";
 const PURPLE = "#7A2CFF";
@@ -8,12 +9,12 @@ const PANEL  = "#0D0A18";
 const BORDER = "rgba(122,44,255,0.22)";
 
 const rows = [
-  { label: "Date",    key: "booking_date",          icon: "◈" },
-  { label: "Start",   key: "start_time",             icon: "▶" },
-  { label: "End",     key: "end_time",               icon: "◼" },
-  { label: "Hours",   key: "total_hours",            icon: "⏱" },
-  { label: "Players", key: "total_people",           icon: "◆" },
-  { label: "Loyalty", key: "awarded_loyalty_points", icon: "✦" },
+  { label: "Date",    key: "booking_date",          icon: <CalendarDays size={13} /> },
+  { label: "Start",   key: "start_time",             icon: <Play size={13} /> },
+  { label: "End",     key: "end_time",               icon: <Square size={13} /> },
+  { label: "Hours",   key: "total_hours",            icon: <Timer size={13} /> },
+  { label: "Players", key: "total_people",           icon: <Users size={13} /> },
+  { label: "Loyalty", key: "awarded_loyalty_points", icon: <Star size={13} /> },
 ];
 
 function InfoRow({ icon, label, value, index }) {

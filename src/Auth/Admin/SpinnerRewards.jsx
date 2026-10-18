@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import AdminLayout from "./AdminLayout";
 import { adminApi } from "../api/adminapi";
 
+import { Check, CircleAlert, Plus, X } from "lucide-react";
 const neon = { cyan: "#00f5ff", pink: "#ff2d78", yellow: "#ffe600", card: "#0d0d1a" };
 
 const TYPE_CONFIG = {
@@ -182,7 +183,7 @@ function AddRewardPanel({ onSuccess, onCancel }) {
         <form onSubmit={submit} className="asr-body">
           {status && (
             <div className={`asr-banner ${status.type}`}>
-              <span>{status.type === "success" ? "✓" : "!"}</span>
+              <span>{status.type === "success" ? <Check size={14} aria-hidden="true" /> : <CircleAlert size={14} aria-hidden="true" />}</span>
               <span>{status.message}</span>
             </div>
           )}
@@ -314,7 +315,7 @@ export default function SpinnerRewards() {
               className="sr-btn sr-btn-add"
               onClick={() => setShowAddForm((v) => !v)}
             >
-              {showAddForm ? "✕ Close" : "+ Add Reward"}
+              {showAddForm ? <><X className="ico" size="1.05em" aria-hidden="true" /> Close</> : <><Plus className="ico" size="1.05em" aria-hidden="true" /> Add Reward</>}
             </button>
           </div>
         </div>

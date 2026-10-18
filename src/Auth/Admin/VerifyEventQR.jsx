@@ -3,6 +3,7 @@ import jsQR from "jsqr";
 import { adminApi } from "../api/adminapi";
 import AdminLayout from "./AdminLayout";
 
+import { Check, Keyboard, RotateCw, ScanLine, TriangleAlert } from "lucide-react";
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Share+Tech+Mono&display=swap');
 
@@ -514,17 +515,17 @@ export default function VerifyEventQR() {
             className={`vqr-tab ${mode === "manual" ? "active" : ""}`}
             onClick={() => switchMode("manual")}
           >
-            ⌨ Manual Entry
+            <Keyboard className="ico" size="1.05em" aria-hidden="true" /> Manual Entry
           </button>
           <button
             className={`vqr-tab ${mode === "scan" ? "active" : ""}`}
             onClick={() => switchMode("scan")}
           >
-            📷 Scan QR
+            <ScanLine className="ico" size="1.05em" aria-hidden="true" /> Scan QR
           </button>
         </div>
 
-        {error && <div className="vqr-error">⚠ {error}</div>}
+        {error && <div className="vqr-error"><TriangleAlert className="ico" size="1.05em" aria-hidden="true" /> {error}</div>}
 
         {mode === "manual" ? (
           <div className="vqr-panel">
@@ -548,7 +549,7 @@ export default function VerifyEventQR() {
           <div className="vqr-panel">
             <label className="vqr-label">▸ Point Camera at QR Code</label>
 
-            {cameraError && <div className="vqr-error">⚠ {cameraError}</div>}
+            {cameraError && <div className="vqr-error"><TriangleAlert className="ico" size="1.05em" aria-hidden="true" /> {cameraError}</div>}
 
             <div className="vqr-scan-frame">
               <video
@@ -600,7 +601,7 @@ export default function VerifyEventQR() {
         {result && (
           <div className="vqr-result">
             <div className="vqr-result-header">
-              <div className="vqr-check">✓</div>
+              <div className="vqr-check"><Check size={30} aria-hidden="true" /></div>
               <div>
                 <div className="vqr-result-title">Booking Verified</div>
                 <div className="vqr-result-status">ACCESS GRANTED</div>
@@ -621,7 +622,7 @@ export default function VerifyEventQR() {
 
             <div className="vqr-result-actions">
               <button className="vqr-next-btn" onClick={scanAnother}>
-                ↻ Verify Another
+                <RotateCw className="ico" size="1.05em" aria-hidden="true" /> Verify Another
               </button>
             </div>
           </div>

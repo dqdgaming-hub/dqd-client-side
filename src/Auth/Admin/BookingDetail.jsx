@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { adminApi } from "../api/adminapi";
+import { showWhatsApp } from "../../utils/whatsapp";
 import AdminLayout from "./AdminLayout";
 import { bookingCss, StatusBadge } from "./bookingTheme.jsx";
 
+import { BadgeCheck, Check, CircleCheck, Hourglass, MailCheck, Star, TriangleAlert, X, Zap } from "lucide-react";
 // ── extra-member charge = price_per_hour × total_hours ──────────────────────
 function calcMemberCharge(booking) {
   const rate  = parseFloat(booking.item?.price_per_hour || 0);
@@ -50,7 +52,8 @@ export default function BookingDetail() {
     if (!confirm("Approve this booking? A QR code will be emailed to the customer.")) return;
     setActing(true);
     try {
-      await adminApi.approveBooking(booking.id);
+      const result = await adminApi.approveBooking(booking.id);
+      showWhatsApp(result?.whatsapp_url, "Send confirmation to the customer");
       loadData();
     } catch (err) { alert(err.message); }
     finally { setActing(false); }
@@ -100,7 +103,7 @@ export default function BookingDetail() {
       <style>{bookingCss}</style>
       <div className="bk-pg">
         <AdminLayout>
-          <div className="bk-alert">⚠ Booking not found or failed to load.</div>
+          <div className="bk-alert"><TriangleAlert className="ico" size="1.05em" aria-hidden="true" /> Booking not found or failed to load.</div>
         </AdminLayout>
       </div>
     </>
@@ -132,10 +135,10 @@ export default function BookingDetail() {
                 <StatusBadge status={booking.payment_status} />
                 {booking.is_happy_hour && (
                   <span style={{ fontFamily: "var(--bk-font-mono)", fontSize: "0.6rem",
-                                 color: "var(--bk-yellow)", letterSpacing: "0.1em" }}>⚡ HAPPY HOUR</span>
+                                 color: "var(--bk-yellow)", letterSpacing: "0.1em" }}><Zap className="ico" size="1.05em" aria-hidden="true" /> HAPPY HOUR</span>
                 )}
                 {booking.checked_in && (
-                  <span className="bk-checkin-badge done">✓ Checked In</span>
+                  <span className="bk-checkin-badge done"><CircleCheck className="ico" size="1.05em" aria-hidden="true" /> Checked In</span>
                 )}
               </div>
             </div>
@@ -146,10 +149,10 @@ export default function BookingDetail() {
               {booking.status === "pending" && (
                 <>
                   <button className="bk-btn-success" onClick={handleApprove} disabled={acting}>
-                    {acting ? "Processing…" : "✓ Approve"}
+                    {acting ? "Processing…" : <><Check className="ico" size="1.05em" aria-hidden="true" /> Approve</>}
                   </button>
                   <button className="bk-btn-danger" onClick={handleReject} disabled={acting}>
-                    {acting ? "Processing…" : "✕ Reject"}
+                    {acting ? "Processing…" : <><X className="ico" size="1.05em" aria-hidden="true" /> Reject</>}
                   </button>
                 </>
               )}
@@ -184,7 +187,7 @@ export default function BookingDetail() {
                   {booking.user && (
                     <div className="bk-field">
                       <span className="bk-field-label">Member Account</span>
-                      <span className="bk-field-val" style={{ color: "var(--bk-cyan)", fontSize: "0.7rem" }}>✓ Registered User</span>
+                      <span className="bk-field-val" style={{ color: "var(--bk-cyan)", fontSize: "0.7rem" }}><BadgeCheck className="ico" size="1.05em" aria-hidden="true" /> Registered User</span>
                     </div>
                   )}
                 </div>
@@ -216,7 +219,7 @@ export default function BookingDetail() {
                   <div className="bk-field">
                     <span className="bk-field-label">Happy Hour</span>
                     <span className="bk-field-val" style={{ color: booking.is_happy_hour ? "var(--bk-yellow)" : "var(--bk-muted)" }}>
-                      {booking.is_happy_hour ? "⚡ Yes" : "No"}
+                      {booking.is_happy_hour ? <><Zap className="ico" size="1.05em" aria-hidden="true" /> Yes</> : "No"}
                     </span>
                   </div>
                 </div>
@@ -384,7 +387,7 @@ export default function BookingDetail() {
                   <div className="bk-field">
                     <span className="bk-field-label">Awarded Points</span>
                     <span className="bk-pts" style={{ fontSize: "1.4rem" }}>
-                      ⭐ {booking.awarded_loyalty_points ?? 0}
+                      <Star className="ico" size="1.05em" aria-hidden="true" /> {booking.awarded_loyalty_points ?? 0}
                     </span>
                   </div>
                   {booking.use_manual_loyalty_points && (
@@ -420,8 +423,8 @@ export default function BookingDetail() {
                 <h2 className="bk-panel-title">Entry QR Code</h2>
                 <span className={`bk-checkin-badge ${booking.checked_in ? "done" : "waiting"}`}>
                   {booking.checked_in
-                    ? `✓ Checked in ${booking.checked_in_at ? `· ${booking.checked_in_at}` : ""}`
-                    : "⏳ Awaiting check-in"}
+                    ? <><CircleCheck className="ico" size="1.05em" aria-hidden="true" /> Checked in{booking.checked_in_at ? ` · ${booking.checked_in_at}` : ""}</>
+                    : <><Hourglass className="ico" size="1.05em" aria-hidden="true" /> Awaiting check-in</>}
                 </span>
               </div>
               <div className="bk-panel-body">
@@ -431,7 +434,7 @@ export default function BookingDetail() {
                   {booking.qr_sent && (
                     <span style={{ fontFamily: "var(--bk-font-mono)", fontSize: "0.58rem",
                                    color: "#00ff64", letterSpacing: "0.1em" }}>
-                      ✓ QR emailed to customer
+                      <MailCheck className="ico" size="1.05em" aria-hidden="true" /> QR emailed to customer
                     </span>
                   )}
                 </div>

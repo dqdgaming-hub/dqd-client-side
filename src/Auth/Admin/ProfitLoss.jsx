@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import AdminLayout from "./AdminLayout";
 import { adminApi } from "../api/adminapi";
 
+import { Scale } from "lucide-react";
 const theme = {
   bg: "#0a0a0f", surface: "#0d0d1a", card: "#111122", border: "#1a1a2e",
   cyan: "#00f5ff", pink: "#ff006e", yellow: "#ffd60a", green: "#39ff14",
@@ -239,7 +240,7 @@ export default function ProfitLoss() {
         ) : (
           <div className="statement-card">
             <div className="statement-header">
-              <div className="statement-header-title">⚖ P&L Statement</div>
+              <div className="statement-header-title"><Scale className="ico" size="1.05em" aria-hidden="true" /> P&L Statement</div>
               <div className="statement-period">{period} period</div>
             </div>
 

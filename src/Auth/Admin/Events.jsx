@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import AdminLayout from "./AdminLayout";
 import { adminCss } from "./adminTheme";
 
+import { TriangleAlert, X } from "lucide-react";
 const EDIT_PANEL_CSS = `
   .adm-edit-panel {
     background: rgba(0,255,225,0.03);
@@ -121,7 +122,7 @@ function ImageDropField({ existingUrl, file, onChange }) {
             onClick={() => onChange(null)}
             title="Remove image"
           >
-            ✕
+            <X size={16} aria-hidden="true" />
           </button>
         </div>
       ) : (
@@ -199,7 +200,7 @@ function EditEventPanel({ event, onSave, onCancel }) {
   return (
     <div className="adm-edit-panel">
       <div className="adm-edit-title">▸ Editing — {event.title}</div>
-      {error && <div className="adm-alert" style={{ marginBottom: 14 }}>⚠ {error}</div>}
+      {error && <div className="adm-alert" style={{ marginBottom: 14 }}><TriangleAlert className="ico" size="1.05em" aria-hidden="true" /> {error}</div>}
       <form onSubmit={submit}>
         <div className="adm-field">
           <label className="adm-label">Event Title</label>
@@ -305,7 +306,7 @@ export default function Events() {
             <Link className="adm-btn-ghost" to="/admin/events/add">+ Add Event</Link>
           </section>
 
-          {error && <div className="adm-alert">⚠ {error}</div>}
+          {error && <div className="adm-alert"><TriangleAlert className="ico" size="1.05em" aria-hidden="true" /> {error}</div>}
 
           <article className="adm-panel">
             <div className="adm-panel-head">

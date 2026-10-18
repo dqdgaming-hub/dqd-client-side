@@ -7,6 +7,7 @@ import {
     resetPassword,
 } from "./forgotPasswordApi";
 
+import { AtSign, Check, CircleCheck, CircleX, KeyRound, Lock, Search, ShieldCheck } from "lucide-react";
 /* ─── design tokens ─── */
 const T = {
     bg: "#0a0a0f",
@@ -21,9 +22,9 @@ const T = {
 };
 
 const STEPS = [
-    { id: 1, label: "Identify", icon: "✦" },
-    { id: 2, label: "Verify",   icon: "◈" },
-    { id: 3, label: "Secure",   icon: "⬡" },
+    { id: 1, label: "Identify", icon: Search },
+    { id: 2, label: "Verify",   icon: ShieldCheck },
+    { id: 3, label: "Secure",   icon: KeyRound },
 ];
 
 /* ═══════════════════════════════════════════
@@ -336,7 +337,7 @@ function Stepper({ step }) {
                                 fontSize: 16,
                             }}
                         >
-                            {step > s.id ? "✓" : s.icon}
+                            {step > s.id ? <Check size={15} aria-hidden="true" /> : <s.icon size={15} aria-hidden="true" />}
                         </motion.div>
                         <span style={{
                             fontSize: 9, letterSpacing: 2,
@@ -375,7 +376,7 @@ function ErrorMsg({ msg }) {
                 clipPath: "polygon(8px 0%,100% 0%,100% calc(100% - 8px),calc(100% - 8px) 100%,0% 100%,0% 8px)",
             }}
         >
-            ✗ {msg}
+            <CircleX className="ico" size="1.05em" aria-hidden="true" /> {msg}
         </motion.div>
     );
 }
@@ -401,6 +402,18 @@ export default function ForgotPassword() {
     const [form, setForm] = useState({ email: "", otp: "", new_password: "", confirm_password: "" });
     const [showPass, setShowPass] = useState({ new: false, confirm: false });
     const [error, setError] = useState("");
+    const [info, setInfo] = useState("");
+    const [resendsLeft, setResendsLeft] = useState(null);
+    const [cooldown, setCooldown] = useState(0);
+
+    // Resend cooldown countdown (server enforces the same 60s rule).
+    useEffect(() => {
+        if (cooldown <= 0) return undefined;
+        const id = setTimeout(() => setCooldown((c) => c - 1), 1000);
+        return () => clearTimeout(id);
+    }, [cooldown]);
+
+    const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim());
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -410,12 +423,24 @@ export default function ForgotPassword() {
 
     const sendOTP = async () => {
         setError("");
+        setInfo("");
+        if (!emailValid) { setError("Enter a valid email address."); return; }
+        if (cooldown > 0 || resendsLeft === 0) return;
         try {
             setLoading(true);
-            await forgotPassword({ email: form.email });
+            const data = await forgotPassword({ email: form.email.trim().toLowerCase() });
+            if (typeof data?.resends_left === "number") setResendsLeft(data.resends_left);
+            setCooldown(60);
+            setForm((p) => ({ ...p, otp: "" }));
+            if (step === 2) setInfo("A new code has been sent.");
             setStep(2);
         } catch (err) {
-            setError(err.response?.data?.detail || err.response?.data?.message || "Failed to send OTP.");
+            const d = err.response?.data || {};
+            if (err.response?.status === 429) {
+                if (typeof d.resends_left === "number") setResendsLeft(d.resends_left);
+                if (d.retry_after && d.retry_after <= 120) setCooldown(Number(d.retry_after));
+            }
+            setError(d.detail || d.message || "Failed to send the code. Please try again.");
         } finally {
             setLoading(false);
         }
@@ -436,6 +461,7 @@ export default function ForgotPassword() {
 
     const updatePassword = async () => {
         setError("");
+        if (form.new_password.length < 8) { setError("Password must be at least 8 characters."); return; }
         if (form.new_password !== form.confirm_password) { setError("Passwords do not match."); return; }
         try {
             setLoading(true);
@@ -489,7 +515,7 @@ export default function ForgotPassword() {
             `}</style>
 
             <div style={{
-                minHeight: "100vh", width: "100%",
+                minHeight: "100vh", width: "100%", overflowX: "hidden", boxSizing: "border-box",
                 display: "flex", alignItems: "center", justifyContent: "center",
                 padding: "24px 16px",
                 background: `radial-gradient(ellipse 60% 50% at 30% 20%, ${T.purple}18 0%, transparent 60%),
@@ -556,9 +582,12 @@ export default function ForgotPassword() {
                             {step === 1 && (
                                 <motion.div key="s1" variants={slide} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }}>
                                     <CyberInput label="Email Address" type="email" name="email" value={form.email}
-                                        onChange={handleChange} placeholder="operative@domain.com" icon="@" />
+                                        onChange={handleChange} placeholder="operative@domain.com" icon={<AtSign size={15} aria-hidden="true" />} />
                                     {error && <ErrorMsg msg={error} />}
-                                    <CyberButton onClick={sendOTP} disabled={loading || !form.email}>
+                                    <p style={{ fontSize: 11, color: T.textDim, fontFamily: "'Share Tech Mono', monospace", margin: "0 0 16px", lineHeight: 1.6 }}>
+                                        Signed up with only a mobile number? Contact DQD Gaming and we'll reset your password on WhatsApp.
+                                    </p>
+                                    <CyberButton onClick={sendOTP} disabled={loading || !emailValid}>
                                         {loading ? <PulseText text="TRANSMITTING" /> : "SEND OTP →"}
                                     </CyberButton>
                                 </motion.div>
@@ -579,6 +608,9 @@ export default function ForgotPassword() {
                                     </div>
 
                                     {error && <div style={{ marginTop: 16 }}><ErrorMsg msg={error} /></div>}
+                                    {info && !error && (
+                                        <p style={{ marginTop: 16, textAlign: "center", color: T.green, fontSize: 12, fontFamily: "'Share Tech Mono', monospace" }}>{info}</p>
+                                    )}
 
                                     <div style={{ marginTop: 28 }}>
                                         <CyberButton onClick={verifyOTP} disabled={loading || !otpComplete} color={T.green}>
@@ -586,10 +618,21 @@ export default function ForgotPassword() {
                                         </CyberButton>
                                     </div>
                                     <p style={{ textAlign: "center", marginTop: 14, fontSize: 11, color: T.textDim, fontFamily: "'Share Tech Mono', monospace" }}>
-                                        Didn't receive?{" "}
-                                        <button onClick={sendOTP} style={{ background: "none", border: "none", color: T.cyan, cursor: "pointer", fontSize: 11, fontFamily: "'Share Tech Mono', monospace", textDecoration: "underline", padding: 0 }}>
-                                            Resend
-                                        </button>
+                                        {resendsLeft === 0 ? (
+                                            "No resends left. Please try again later."
+                                        ) : (
+                                            <>
+                                                Didn't receive?{" "}
+                                                <button
+                                                    onClick={sendOTP}
+                                                    disabled={loading || cooldown > 0}
+                                                    style={{ background: "none", border: "none", color: cooldown > 0 ? T.textDim : T.cyan, cursor: cooldown > 0 ? "not-allowed" : "pointer", fontSize: 11, fontFamily: "'Share Tech Mono', monospace", textDecoration: "underline", padding: 0 }}
+                                                >
+                                                    {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend"}
+                                                </button>
+                                                {typeof resendsLeft === "number" && ` (${resendsLeft} left)`}
+                                            </>
+                                        )}
                                     </p>
                                 </motion.div>
                             )}
@@ -599,7 +642,7 @@ export default function ForgotPassword() {
                                     <div style={{ position: "relative" }}>
                                         <CyberInput label="New Password" type={showPass.new ? "text" : "password"}
                                             name="new_password" value={form.new_password} onChange={handleChange}
-                                            placeholder="Min 8 characters" icon="🔑" />
+                                            placeholder="Min 8 characters" icon={<KeyRound size={15} aria-hidden="true" />} />
                                         <button onClick={() => setShowPass(p => ({ ...p, new: !p.new }))}
                                             style={{ position: "absolute", right: 12, top: 34, background: "none", border: "none", color: T.textDim, cursor: "pointer", fontSize: 11, fontFamily: "'Share Tech Mono', monospace", letterSpacing: 1, padding: 0 }}>
                                             {showPass.new ? "HIDE" : "SHOW"}
@@ -609,16 +652,16 @@ export default function ForgotPassword() {
                                     <div style={{ position: "relative", marginTop: 12 }}>
                                         <CyberInput label="Confirm Password" type={showPass.confirm ? "text" : "password"}
                                             name="confirm_password" value={form.confirm_password} onChange={handleChange}
-                                            placeholder="Repeat password" icon="🔒" />
+                                            placeholder="Repeat password" icon={<Lock size={15} aria-hidden="true" />} />
                                         <button onClick={() => setShowPass(p => ({ ...p, confirm: !p.confirm }))}
                                             style={{ position: "absolute", right: 12, top: 34, background: "none", border: "none", color: T.textDim, cursor: "pointer", fontSize: 11, fontFamily: "'Share Tech Mono', monospace", letterSpacing: 1, padding: 0 }}>
                                             {showPass.confirm ? "HIDE" : "SHOW"}
                                         </button>
                                         {form.confirm_password && form.new_password !== form.confirm_password && (
-                                            <p style={{ color: T.pink, fontSize: 11, margin: "4px 0 0", fontFamily: "'Share Tech Mono', monospace" }}>✗ Passwords don't match</p>
+                                            <p style={{ color: T.pink, fontSize: 11, margin: "4px 0 0", fontFamily: "'Share Tech Mono', monospace" }}><CircleX className="ico" size="1.05em" aria-hidden="true" /> Passwords don't match</p>
                                         )}
                                         {form.confirm_password && form.new_password === form.confirm_password && (
-                                            <p style={{ color: T.green, fontSize: 11, margin: "4px 0 0", fontFamily: "'Share Tech Mono', monospace" }}>✓ Passwords match</p>
+                                            <p style={{ color: T.green, fontSize: 11, margin: "4px 0 0", fontFamily: "'Share Tech Mono', monospace" }}><CircleCheck className="ico" size="1.05em" aria-hidden="true" /> Passwords match</p>
                                         )}
                                     </div>
                                     {error && <div style={{ marginTop: 12 }}><ErrorMsg msg={error} /></div>}
@@ -640,7 +683,7 @@ export default function ForgotPassword() {
                                     <motion.div initial={{ scale: 0 }} animate={{ scale: [0, 1.2, 1] }}
                                         transition={{ duration: 0.6, times: [0, 0.6, 1] }}
                                         style={{ fontSize: 64, marginBottom: 16, color: T.green }}>
-                                        ✦
+                                        <ShieldCheck size={64} strokeWidth={1.5} aria-hidden="true" />
                                     </motion.div>
                                     <motion.div
                                         animate={{ boxShadow: [`0 0 24px ${T.green}44`, `0 0 40px ${T.green}88`, `0 0 24px ${T.green}44`] }}

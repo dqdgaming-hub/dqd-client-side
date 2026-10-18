@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import AdminLayout from "./AdminLayout";
 import { adminCss } from "./adminTheme";
 
+import { Check, TriangleAlert, X } from "lucide-react";
 const EDIT_PANEL_CSS = `
   .adm-edit-panel {
     background: rgba(0,255,225,0.03);
@@ -116,7 +117,7 @@ function ImageDropField({ existingUrl, file, onChange }) {
             onClick={() => onChange(null)}
             title="Remove image"
           >
-            ✕
+            <X size={16} aria-hidden="true" />
           </button>
         </div>
       ) : (
@@ -135,6 +136,7 @@ function EditComboPackPanel({ item, games, onSave, onCancel }) {
     snack_price:   item.snack_price ?? "",
     combo_price:   item.combo_price ?? "",
     loyalty_bonus: item.loyalty_bonus ?? "",
+    max_people: item.max_people ?? 4,
     gaming_items:  (item.gaming_items ?? []).map(String),
   });
   const [imageFile, setImageFile] = useState(null);
@@ -179,6 +181,7 @@ function EditComboPackPanel({ item, games, onSave, onCancel }) {
       if (form.snack_price !== "") formData.append("snack_price", Number(form.snack_price));
       if (form.combo_price !== "") formData.append("combo_price", Number(form.combo_price));
       if (form.loyalty_bonus !== "") formData.append("loyalty_bonus", Number(form.loyalty_bonus));
+      if (form.max_people !== "") formData.append("max_people", Math.max(1, Number(form.max_people)));
       form.gaming_items.forEach((id) => formData.append("gaming_items", id));
       if (imageFile) {
         formData.append("image", imageFile);
@@ -195,7 +198,7 @@ function EditComboPackPanel({ item, games, onSave, onCancel }) {
   return (
     <div className="adm-edit-panel">
       <div className="adm-edit-title">▸ Editing — {item.name}</div>
-      {error && <div className="adm-alert" style={{ marginBottom: 14 }}>⚠ {error}</div>}
+      {error && <div className="adm-alert" style={{ marginBottom: 14 }}><TriangleAlert className="ico" size="1.05em" aria-hidden="true" /> {error}</div>}
       <form onSubmit={submit}>
         <div className="adm-form-grid">
           <div className="adm-field adm-form-full">
@@ -223,6 +226,11 @@ function EditComboPackPanel({ item, games, onSave, onCancel }) {
             <input className="adm-input" type="number" name="loyalty_bonus" min="0" step="1" value={form.loyalty_bonus} onChange={change} />
           </div>
 
+          <div className="adm-field">
+            <label className="adm-label">Max People</label>
+            <input className="adm-input" type="number" name="max_people" min="1" max="50" step="1" value={form.max_people} onChange={change} />
+          </div>
+
           {games.length > 0 && (
             <div className="adm-field adm-form-full">
               <label className="adm-label">Included Games</label>
@@ -247,7 +255,7 @@ function EditComboPackPanel({ item, games, onSave, onCancel }) {
                         transition: "all 0.15s",
                       }}
                     >
-                      {selected ? "✓ " : ""}{g.name}
+                      {selected && <Check className="ico" size="1em" aria-hidden="true" />} {g.name}
                     </button>
                   );
                 })}
@@ -332,7 +340,7 @@ export default function ComboPacks() {
             <Link className="adm-btn-ghost" to="/admin/combo-packs/add">+ Add Combo Pack</Link>
           </section>
 
-          {error && <div className="adm-alert">⚠ {error}</div>}
+          {error && <div className="adm-alert"><TriangleAlert className="ico" size="1.05em" aria-hidden="true" /> {error}</div>}
 
           <article className="adm-panel">
             <div className="adm-panel-head">

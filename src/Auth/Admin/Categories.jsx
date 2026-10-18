@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import AdminLayout from "./AdminLayout";
 import { adminCss } from "./adminTheme";
 
+import { ImageOff, TriangleAlert, Upload, X } from "lucide-react";
 const TYPE_COLORS = {
   ps5:  { color: "rgba(0,255,225,0.10)",   border: "rgba(0,255,225,0.35)",  text: "#00ffe1" },
   pool: { color: "rgba(245,255,0,0.07)",   border: "rgba(245,255,0,0.30)",  text: "#f5ff00" },
@@ -345,7 +346,7 @@ function EditCategoryPanel({ item, onSave, onCancel }) {
         </div>
       </div>
 
-      {error && <div className="adm-alert" style={{ marginBottom: 16 }}>⚠ {error}</div>}
+      {error && <div className="adm-alert" style={{ marginBottom: 16 }}><TriangleAlert className="ico" size="1.05em" aria-hidden="true" /> {error}</div>}
 
       <form onSubmit={submit}>
         <div className="adm-edit-grid">
@@ -427,7 +428,7 @@ function EditCategoryPanel({ item, onSave, onCancel }) {
               <div className="adm-image-preview">
                 <img src={imagePreview} alt="Preview" />
                 <button type="button" className="adm-image-preview-remove" onClick={removeImage}>
-                  ✕ Remove
+                  <X className="ico" size="1.05em" aria-hidden="true" /> Remove
                 </button>
               </div>
             ) : (
@@ -442,7 +443,7 @@ function EditCategoryPanel({ item, onSave, onCancel }) {
                   style={{ display: "none" }}
                   onChange={(e) => applyImage(e.target.files[0])}
                 />
-                <div className="adm-image-drop-text">⬆ Click to upload image</div>
+                <div className="adm-image-drop-text"><Upload className="ico" size="1.05em" aria-hidden="true" /> Click to upload image</div>
               </div>
             )}
           </div>
@@ -526,7 +527,7 @@ export default function Categories() {
             <Link className="adm-btn-ghost" to="/admin/categories/add">+ Add Category</Link>
           </section>
 
-          {error && <div className="adm-alert">⚠ {error}</div>}
+          {error && <div className="adm-alert"><TriangleAlert className="ico" size="1.05em" aria-hidden="true" /> {error}</div>}
 
           {/* ── Table panel ── */}
           <article className="adm-panel">
@@ -575,7 +576,7 @@ export default function Categories() {
                         <td>
                           {item.image
                             ? <img className="adm-thumb" src={item.image} alt={item.name} />
-                            : <div className="adm-thumb-placeholder">✕</div>
+                            : <div className="adm-thumb-placeholder"><ImageOff size={18} aria-hidden="true" /></div>
                           }
                         </td>
 

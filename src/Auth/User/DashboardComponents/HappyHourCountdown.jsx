@@ -1,11 +1,8 @@
-import React, { useEffect, useState } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getUpcomingHappyHour } from "../../api/userapi";
 
-// ============================================================
-// DESIGN TOKENS — matches DQD cyberpunk system
-// ============================================================
-const TOKENS = {
+var K$1 = {
     void: "#05050a",
     panel: "#0b0b14",
     panelAlt: "#0f0f1a",
@@ -16,759 +13,388 @@ const TOKENS = {
     lineSoft: "rgba(255,255,255,0.06)",
     textDim: "rgba(230,240,245,0.55)",
     danger: "#ff2d55",
-};
-
-const CHAMFER = "polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px)";
-const CHAMFER_SM = "polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)";
-
-// ============================================================
-// ICONS (inline SVG, no emojis)
-// ============================================================
-const IconBolt = (props) => (
-    <svg viewBox="0 0 24 24" fill="none" {...props}>
-        <path d="M13 2 3 14h7l-1 8 11-14h-8l1-6z" fill="currentColor" />
+  },
+  En = "polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px)",
+  Dn = "polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)",
+  On = (e) => (
+    <svg viewBox="0 0 24 24" fill="none" {...e}>
+      <path d="M13 2 3 14h7l-1 8 11-14h-8l1-6z" fill="currentColor" />
     </svg>
-);
-
-const IconClock = (props) => (
-    <svg viewBox="0 0 24 24" fill="none" {...props}>
-        <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.6" />
-        <path d="M12 7v5l3.5 2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+  ),
+  XKn = (e) => (
+    <svg viewBox="0 0 24 24" fill="none" {...e}>
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.6" />
+      <path
+        d="M12 7v5l3.5 2"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
-);
-
-const IconCalendar = (props) => (
-    <svg viewBox="0 0 24 24" fill="none" {...props}>
-        <rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="1.6" />
-        <path d="M3 10h18M8 3v4M16 3v4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+  ),
+  An = (e) => (
+    <svg viewBox="0 0 24 24" fill="none" {...e}>
+      <rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M3 10h18M8 3v4M16 3v4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
     </svg>
-);
-
-const IconGift = (props) => (
-    <svg viewBox="0 0 24 24" fill="none" {...props}>
-        <rect x="3" y="9" width="18" height="12" rx="1" stroke="currentColor" strokeWidth="1.6" />
-        <path d="M3 9h18M12 9v12M12 9c-1.7 0-4-1-4-3.2A2.3 2.3 0 0 1 10.3 3C12 3 12 6 12 9ZM12 9c1.7 0 4-1 4-3.2A2.3 2.3 0 0 0 13.7 3C12 3 12 6 12 9Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+  ),
+  XJn = (e) => (
+    <svg viewBox="0 0 24 24" fill="none" {...e}>
+      <rect x="3" y="9" width="18" height="12" rx="1" stroke="currentColor" strokeWidth="1.6" />
+      <path
+        d="M3 9h18M12 9v12M12 9c-1.7 0-4-1-4-3.2A2.3 2.3 0 0 1 10.3 3C12 3 12 6 12 9ZM12 9c1.7 0 4-1 4-3.2A2.3 2.3 0 0 0 13.7 3C12 3 12 6 12 9Z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
     </svg>
-);
-
-const IconNote = (props) => (
-    <svg viewBox="0 0 24 24" fill="none" {...props}>
-        <path d="M4 4h16v13l-4 4H4V4Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
-        <path d="M8 9h8M8 13h5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+  ),
+  Mn = (e) => (
+    <svg viewBox="0 0 24 24" fill="none" {...e}>
+      <path d="M4 4h16v13l-4 4H4V4Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+      <path d="M8 9h8M8 13h5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
     </svg>
-);
-
-const IconGhost = (props) => (
-    <svg viewBox="0 0 24 24" fill="none" {...props}>
-        <path
-            d="M12 3c-4.4 0-8 3.6-8 8v9l2.5-2 2.5 2 2.5-2 2.5 2 2.5-2 2.5 2v-9c0-4.4-3.6-8-8-8Z"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinejoin="round"
-        />
-        <circle cx="9.5" cy="11" r="1" fill="currentColor" />
-        <circle cx="14.5" cy="11" r="1" fill="currentColor" />
+  ),
+  Nn = (e) => (
+    <svg viewBox="0 0 24 24" fill="none" {...e}>
+      <path
+        d="M12 3c-4.4 0-8 3.6-8 8v9l2.5-2 2.5 2 2.5-2 2.5 2 2.5-2 2.5 2v-9c0-4.4-3.6-8-8-8Z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+      <circle cx="9.5" cy="11" r="1" fill="currentColor" />
+      <circle cx="14.5" cy="11" r="1" fill="currentColor" />
     </svg>
-);
-
-// ============================================================
-// COMPONENT
-// ============================================================
-const HappyHourCountdown = () => {
-
-    const [happyHour, setHappyHour] = useState(null);
-    const [countdown, setCountdown] = useState(null);
-    const [loading, setLoading] = useState(true);
-
-
-    // ============================================================
-    // LOAD UPCOMING HAPPY HOUR
-    // ============================================================
-
-    const loadNextHappyHour = async () => {
-
+  ),
+  HappyHourCountdown = () => {
+    let [e, t] = useState(null),
+      [n, r] = useState(null),
+      [i, a] = useState(true),
+      o = async () => {
         try {
-
-            setLoading(true);
-
-            const data = await getUpcomingHappyHour();
-
-            const slot = data?.happy_hour;
-
-
-            if (!slot) {
-
-                setHappyHour(null);
-                setCountdown(null);
-
-                return;
-            }
-
-
-            const startDate = new Date(
-                `${slot.date}T${slot.start_time}`
-            );
-
-            const endDate = new Date(
-                `${slot.date}T${slot.end_time}`
-            );
-
-
-            setHappyHour({
-                ...slot,
-                startDate,
-                endDate,
-            });
-
-        } catch (error) {
-
-            console.error(
-                "Failed to load Happy Hour:",
-                error
-            );
-
-            setHappyHour(null);
-            setCountdown(null);
-
-        } finally {
-
-            setLoading(false);
-
-        }
-    };
-
-
-    // ============================================================
-    // INITIAL API CALL
-    // ============================================================
-
-    useEffect(() => {
-
-        loadNextHappyHour();
-
-    }, []);
-
-
-    // ============================================================
-    // COUNTDOWN
-    // ============================================================
-
-    useEffect(() => {
-
-        if (!happyHour) {
+          a(true);
+          let e = (await getUpcomingHappyHour())?.happy_hour;
+          if (!e) {
+            t(null), r(null);
             return;
+          }
+          let n = new Date(`${e.date}T${e.start_time}`),
+            i = new Date(`${e.date}T${e.end_time}`);
+          t({
+            ...e,
+            startDate: n,
+            endDate: i,
+          });
+        } catch (e) {
+          console.error("Failed to load Happy Hour:", e), t(null), r(null);
+        } finally {
+          a(false);
         }
-
-
-        const updateCountdown = () => {
-
-            const now = new Date();
-
-            const start = happyHour.startDate;
-            const end = happyHour.endDate;
-
-
-            // -----------------------------------------
-            // HAPPY HOUR IS CURRENTLY RUNNING
-            // -----------------------------------------
-
-            if (now >= start && now < end) {
-
-                setCountdown({
-                    label: "ENDS IN",
-                    diff: end.getTime() - now.getTime(),
-                });
-
-                return;
-            }
-
-
-            // -----------------------------------------
-            // HAPPY HOUR HAS NOT STARTED
-            // -----------------------------------------
-
-            if (now < start) {
-
-                setCountdown({
-                    label: "STARTS IN",
-                    diff: start.getTime() - now.getTime(),
-                });
-
-                return;
-            }
-
-
-            // -----------------------------------------
-            // HAPPY HOUR HAS ENDED
-            // -----------------------------------------
-
-            setCountdown(null);
-
-        };
-
-
-        updateCountdown();
-
-
-        // Update countdown every second
-        const interval = setInterval(
-            updateCountdown,
-            1000
-        );
-
-
-        // When the current Happy Hour ends,
-        // fetch the next one exactly once.
-        const timeUntilEnd =
-            happyHour.endDate.getTime() -
-            Date.now();
-
-
-        const refreshTimer = setTimeout(() => {
-
-            loadNextHappyHour();
-
-        }, Math.max(timeUntilEnd + 1000, 1000));
-
-
-        return () => {
-
-            clearInterval(interval);
-            clearTimeout(refreshTimer);
-
-        };
-
-    }, [happyHour]);
-
-
-    // ============================================================
-    // FORMAT COUNTDOWN
-    // ============================================================
-
-    const getSegments = (milliseconds) => {
-
-        const totalSeconds = Math.max(
-            0,
-            Math.floor(milliseconds / 1000)
-        );
-
-
-        const days = Math.floor(
-            totalSeconds / 86400
-        );
-
-        const hours = Math.floor(
-            (totalSeconds % 86400) / 3600
-        );
-
-        const minutes = Math.floor(
-            (totalSeconds % 3600) / 60
-        );
-
-        const seconds =
-            totalSeconds % 60;
-
-
-        const segments = [];
-
-
-        if (days > 0) {
-
-            segments.push({
-                value: days,
-                unit: "D",
+      };
+    useEffect(() => {
+      o();
+    }, []),
+      useEffect(() => {
+        if (!e) return;
+        let t = () => {
+          let t = new Date(),
+            n = e.startDate,
+            i = e.endDate;
+          if (t >= n && t < i) {
+            r({
+              label: "ENDS IN",
+              diff: i.getTime() - t.getTime(),
             });
-
-        }
-
-
-        segments.push({
-            value: hours,
-            unit: "H",
-        });
-
-        segments.push({
-            value: minutes,
-            unit: "M",
-        });
-
-        segments.push({
-            value: seconds,
-            unit: "S",
-        });
-
-
-        return segments;
+            return;
+          }
+          if (t < n) {
+            r({
+              label: "STARTS IN",
+              diff: n.getTime() - t.getTime(),
+            });
+            return;
+          }
+          r(null);
+        };
+        t();
+        let n = setInterval(t, 1e3),
+          i = e.endDate.getTime() - Date.now(),
+          a = setTimeout(
+            () => {
+              o();
+            },
+            Math.max(i + 1e3, 1e3),
+          );
+        return () => {
+          clearInterval(n), clearTimeout(a);
+        };
+      }, [e]);
+    let s = (e) => {
+      let t = Math.max(0, Math.floor(e / 1e3)),
+        n = Math.floor(t / 86400),
+        r = Math.floor((t % 86400) / 3600),
+        i = Math.floor((t % 3600) / 60),
+        a = t % 60,
+        o = [];
+      return (
+        n > 0 &&
+          o.push({
+            value: n,
+            unit: "D",
+          }),
+        o.push({
+          value: r,
+          unit: "H",
+        }),
+        o.push({
+          value: i,
+          unit: "M",
+        }),
+        o.push({
+          value: a,
+          unit: "S",
+        }),
+        o
+      );
     };
-
-
-    // ============================================================
-    // LOADING
-    // ============================================================
-
-    if (loading) {
-
-        return (
-            <div className="hhc-root">
-
-                <div className="hhc-card hhc-loading">
-
-                    <motion.div
-                        className="hhc-loading-glyph"
-                        animate={{
-                            rotate: 360,
-                        }}
-                        transition={{
-                            duration: 1.4,
-                            repeat: Infinity,
-                            ease: "linear",
-                        }}
-                    >
-                        <IconBolt className="hhc-icon" />
-                    </motion.div>
-
-                    <span>
-                        SCANNING FOR OFFERS...
-                    </span>
-
-                </div>
-
-                <Styles />
-
-            </div>
-        );
-    }
-
-
-    // ============================================================
-    // NO HAPPY HOUR
-    // ============================================================
-
-    if (!happyHour) {
-
-        return (
-            <div className="hhc-root">
-
-                <motion.div
-                    className="hhc-card hhc-empty"
-                    initial={{
-                        opacity: 0,
-                        y: 14,
-                    }}
-                    animate={{
-                        opacity: 1,
-                        y: 0,
-                    }}
-                    transition={{
-                        duration: 0.4,
-                    }}
-                >
-
-                    <IconGhost className="hhc-empty-icon" />
-
-                    <h3>
-                        HAPPY HOUR
-                    </h3>
-
-                    <p>
-                        No upcoming Happy Hour available right now.
-                    </p>
-
-                </motion.div>
-
-                <Styles />
-
-            </div>
-        );
-    }
-
-
-    // ============================================================
-    // CURRENT STATE
-    // ============================================================
-
-    const now = new Date();
-
-    const isRunning =
-        now >= happyHour.startDate &&
-        now < happyHour.endDate;
-
-
-    const segments =
-        countdown?.diff != null
-            ? getSegments(countdown.diff)
-            : [];
-
-
-    // ============================================================
-    // DISPLAY
-    // ============================================================
-
-    return (
-
+    if (i)
+      return (
         <div className="hhc-root">
-
+          <div className="hhc-card hhc-loading">
             <motion.div
-                className={`hhc-card ${
-                    isRunning ? "is-live" : ""
-                }`}
-                initial={{
+              className="hhc-loading-glyph"
+              animate={{ rotate: 360 }}
+              transition={{
+                duration: 1.4,
+                repeat: 1 / 0,
+                ease: "linear",
+              }}
+            >
+              <On className="hhc-icon" />
+            </motion.div>
+            <span>SCANNING FOR OFFERS...</span>
+          </div>
+          <XQ />
+        </div>
+      );
+    if (!e)
+      return (
+        <div className="hhc-root">
+          <motion.div
+            className="hhc-card hhc-empty"
+            initial={{
+              opacity: 0,
+              y: 14,
+            }}
+            animate={{
+              opacity: 1,
+              y: 0,
+            }}
+            transition={{ duration: 0.4 }}
+          >
+            <Nn className="hhc-empty-icon" />
+            <h3>HAPPY HOUR</h3>
+            <p>No upcoming Happy Hour available right now.</p>
+          </motion.div>
+          <XQ />
+        </div>
+      );
+    let c = new Date(),
+      l = c >= e.startDate && c < e.endDate,
+      u = n?.diff == null ? [] : s(n.diff);
+    return (
+      <div className="hhc-root">
+        <motion.div
+          className={`hhc-card ${l ? "is-live" : ""}`}
+          initial={{
+            opacity: 0,
+            y: 20,
+            scale: 0.97,
+          }}
+          animate={{
+            opacity: 1,
+            y: 0,
+            scale: 1,
+          }}
+          transition={{
+            duration: 0.45,
+            ease: "easeOut",
+          }}
+        >
+          <div className="hhc-glow" aria-hidden="true" />
+          <div className="hhc-scan" aria-hidden="true" />
+          <div className="hhc-header">
+            <span className="hhc-label">
+              <On className="hhc-icon-sm" />
+              HAPPY HOUR
+            </span>
+            <AnimatePresence>
+              {l && (
+                <motion.span
+                  className="hhc-live"
+                  initial={{
                     opacity: 0,
-                    y: 20,
-                    scale: 0.97,
+                    scale: 0.8,
+                  }}
+                  animate={{
+                    opacity: 1,
+                    scale: 1,
+                  }}
+                  exit={{
+                    opacity: 0,
+                    scale: 0.8,
+                  }}
+                >
+                  <motion.i
+                    className="hhc-live-dot"
+                    animate={{ opacity: [1, 0.3, 1] }}
+                    transition={{
+                      duration: 1.2,
+                      repeat: 1 / 0,
+                    }}
+                  />
+                  LIVE
+                </motion.span>
+              )}
+            </AnimatePresence>
+          </div>
+          <div className="hhc-content">
+            <motion.h2
+              className="hhc-offer"
+              initial={{
+                opacity: 0,
+                scale: 0.9,
+              }}
+              animate={{
+                opacity: 1,
+                scale: 1,
+              }}
+              transition={{
+                duration: 0.4,
+                delay: 0.1,
+                type: "spring",
+                stiffness: 200,
+              }}
+            >
+              {e.offer_percentage}
+              <span className="hhc-offer-unit">% OFF</span>
+            </motion.h2>
+            {e.is_free && (
+              <motion.div
+                className="hhc-free-chip"
+                initial={{
+                  opacity: 0,
+                  y: -6,
                 }}
                 animate={{
-                    opacity: 1,
-                    y: 0,
-                    scale: 1,
+                  opacity: 1,
+                  y: 0,
                 }}
-                transition={{
-                    duration: 0.45,
-                    ease: "easeOut",
-                }}
-            >
-
-                {/* Ambient glow */}
-                <div
-                    className="hhc-glow"
-                    aria-hidden="true"
-                />
-
-                <div
-                    className="hhc-scan"
-                    aria-hidden="true"
-                />
-
-
-                {/* ================= HEADER ================= */}
-
-                <div className="hhc-header">
-
-                    <span className="hhc-label">
-
-                        <IconBolt
-                            className="hhc-icon-sm"
-                        />
-
-                        HAPPY HOUR
-
-                    </span>
-
-
-                    <AnimatePresence>
-
-                        {isRunning && (
-
-                            <motion.span
-                                className="hhc-live"
-                                initial={{
-                                    opacity: 0,
-                                    scale: 0.8,
-                                }}
-                                animate={{
-                                    opacity: 1,
-                                    scale: 1,
-                                }}
-                                exit={{
-                                    opacity: 0,
-                                    scale: 0.8,
-                                }}
-                            >
-
-                                <motion.i
-                                    className="hhc-live-dot"
-                                    animate={{
-                                        opacity: [
-                                            1,
-                                            0.3,
-                                            1,
-                                        ],
-                                    }}
-                                    transition={{
-                                        duration: 1.2,
-                                        repeat: Infinity,
-                                    }}
-                                />
-
-                                LIVE
-
-                            </motion.span>
-
-                        )}
-
-                    </AnimatePresence>
-
-                </div>
-
-
-                {/* ================= CONTENT ================= */}
-
-                <div className="hhc-content">
-
-
-                    {/* OFFER */}
-
-                    <motion.h2
-                        className="hhc-offer"
-                        initial={{
-                            opacity: 0,
-                            scale: 0.9,
-                        }}
-                        animate={{
-                            opacity: 1,
-                            scale: 1,
-                        }}
-                        transition={{
-                            duration: 0.4,
-                            delay: 0.1,
-                            type: "spring",
-                            stiffness: 200,
-                        }}
-                    >
-
-                        {happyHour.offer_percentage}
-
-                        <span className="hhc-offer-unit">
-                            % OFF
-                        </span>
-
-                    </motion.h2>
-
-
-                    {/* FREE */}
-
-                    {happyHour.is_free && (
-
-                        <motion.div
-                            className="hhc-free-chip"
+                transition={{ delay: 0.2 }}
+              >
+                <XJn className="hhc-icon-xs" />
+                FREE SLOT
+              </motion.div>
+            )}
+            <div className="hhc-meta">
+              <span className="hhc-meta-item">
+                <An className="hhc-icon-xs" />
+                {Fn(e.date)}
+              </span>
+              <span className="hhc-meta-item hhc-mono">
+                <XKn className="hhc-icon-xs" />
+                {In(e.start_time)}
+                {" — "}
+                {In(e.end_time)}
+              </span>
+            </div>
+            <div className="hhc-countdown-block">
+              <span className="hhc-countdown-tag">{n?.label || ""}</span>
+              <div className="hhc-segments">
+                {u.map((e, t) => (
+                  <Fragment key={e.unit}>
+                    <div className="hhc-segment">
+                      <div className="hhc-digit-wrap">
+                        <AnimatePresence mode="popLayout">
+                          <motion.span
+                            key={e.value}
+                            className="hhc-digit"
                             initial={{
-                                opacity: 0,
-                                y: -6,
+                              y: -14,
+                              opacity: 0,
                             }}
                             animate={{
-                                opacity: 1,
-                                y: 0,
+                              y: 0,
+                              opacity: 1,
                             }}
-                            transition={{
-                                delay: 0.2,
+                            exit={{
+                              y: 14,
+                              opacity: 0,
                             }}
-                        >
-
-                            <IconGift
-                                className="hhc-icon-xs"
-                            />
-
-                            FREE SLOT
-
-                        </motion.div>
-
-                    )}
-
-
-                    {/* DATE + TIME */}
-
-                    <div className="hhc-meta">
-
-                        <span className="hhc-meta-item">
-
-                            <IconCalendar
-                                className="hhc-icon-xs"
-                            />
-
-                            {formatDate(
-                                happyHour.date
-                            )}
-
-                        </span>
-
-
-                        <span className="hhc-meta-item hhc-mono">
-
-                            <IconClock
-                                className="hhc-icon-xs"
-                            />
-
-                            {formatTimeDisplay(
-                                happyHour.start_time
-                            )}
-
-                            {" — "}
-
-                            {formatTimeDisplay(
-                                happyHour.end_time
-                            )}
-
-                        </span>
-
+                            transition={{ duration: 0.25 }}
+                          >
+                            {String(e.value).padStart(2, "0")}
+                          </motion.span>
+                        </AnimatePresence>
+                      </div>
+                      <span className="hhc-segment-unit">{e.unit}</span>
                     </div>
-
-
-                    {/* ================= COUNTDOWN ================= */}
-
-                    <div className="hhc-countdown-block">
-
-                        <span className="hhc-countdown-tag">
-
-                            {countdown?.label || ""}
-
-                        </span>
-
-
-                        <div className="hhc-segments">
-
-                            {segments.map(
-                                (seg, index) => (
-
-                                    <React.Fragment
-                                        key={seg.unit}
-                                    >
-
-                                        <div className="hhc-segment">
-
-                                            <div className="hhc-digit-wrap">
-
-                                                <AnimatePresence
-                                                    mode="popLayout"
-                                                >
-
-                                                    <motion.span
-                                                        key={seg.value}
-                                                        className="hhc-digit"
-                                                        initial={{
-                                                            y: -14,
-                                                            opacity: 0,
-                                                        }}
-                                                        animate={{
-                                                            y: 0,
-                                                            opacity: 1,
-                                                        }}
-                                                        exit={{
-                                                            y: 14,
-                                                            opacity: 0,
-                                                        }}
-                                                        transition={{
-                                                            duration: 0.25,
-                                                        }}
-                                                    >
-
-                                                        {String(
-                                                            seg.value
-                                                        ).padStart(
-                                                            2,
-                                                            "0"
-                                                        )}
-
-                                                    </motion.span>
-
-                                                </AnimatePresence>
-
-                                            </div>
-
-
-                                            <span className="hhc-segment-unit">
-                                                {seg.unit}
-                                            </span>
-
-                                        </div>
-
-
-                                        {index <
-                                            segments.length - 1 && (
-
-                                            <span className="hhc-segment-sep">
-                                                :
-                                            </span>
-
-                                        )}
-
-                                    </React.Fragment>
-
-                                )
-                            )}
-
-                        </div>
-
-                    </div>
-
-
-                    {/* NOTES */}
-
-                    {happyHour.notes && (
-
-                        <motion.p
-                            className="hhc-notes"
-                            initial={{
-                                opacity: 0,
-                            }}
-                            animate={{
-                                opacity: 1,
-                            }}
-                            transition={{
-                                delay: 0.3,
-                            }}
-                        >
-
-                            <IconNote
-                                className="hhc-icon-xs"
-                            />
-
-                            {happyHour.notes}
-
-                        </motion.p>
-
-                    )}
-
-                </div>
-
-            </motion.div>
-
-
-            <Styles />
-
-        </div>
+                    {t < u.length - 1 && <span className="hhc-segment-sep">:</span>}
+                  </Fragment>
+                ))}
+              </div>
+            </div>
+            {e.notes && (
+              <motion.p
+                className="hhc-notes"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.3 }}
+              >
+                <Mn className="hhc-icon-xs" />
+                {e.notes}
+              </motion.p>
+            )}
+          </div>
+        </motion.div>
+        <XQ />
+      </div>
     );
-};
-
-// --------------------------------------------------
-// Date / time formatting
-// --------------------------------------------------
-const formatDate = (dateString) => {
-    const date = new Date(`${dateString}T00:00:00`);
-    return date.toLocaleDateString("en-IN", {
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-    });
-};
-
-const formatTimeDisplay = (time) => {
-    if (!time) return "";
-    const [hours, minutes] = time.split(":");
-    const date = new Date();
-    date.setHours(Number(hours), Number(minutes), 0, 0);
-    return date.toLocaleTimeString("en-IN", {
+  },
+  Fn = (e) =>
+    new Date(`${e}T00:00:00`).toLocaleDateString("en-IN", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+    }),
+  In = (e) => {
+    if (!e) return "";
+    let [t, n] = e.split(":"),
+      r = new Date();
+    return (
+      r.setHours(Number(t), Number(n), 0, 0),
+      r.toLocaleTimeString("en-IN", {
         hour: "numeric",
         minute: "2-digit",
         hour12: true,
-    });
-};
-
-// ============================================================
-// STYLES
-// ============================================================
-const Styles = () => (
+      })
+    );
+  },
+  XQ = () => (
     <style>{`
         .hhc-root {
-            --cyan: ${TOKENS.cyan};
-            --pink: ${TOKENS.pink};
-            --yellow: ${TOKENS.yellow};
-            --void: ${TOKENS.void};
-            --panel: ${TOKENS.panel};
-            --panel-alt: ${TOKENS.panelAlt};
-            --line: ${TOKENS.line};
-            --line-soft: ${TOKENS.lineSoft};
-            --text-dim: ${TOKENS.textDim};
-            --danger: ${TOKENS.danger};
+            --cyan: ${K$1.cyan};
+            --pink: ${K$1.pink};
+            --yellow: ${K$1.yellow};
+            --void: ${K$1.void};
+            --panel: ${K$1.panel};
+            --panel-alt: ${K$1.panelAlt};
+            --line: ${K$1.line};
+            --line-soft: ${K$1.lineSoft};
+            --text-dim: ${K$1.textDim};
+            --danger: ${K$1.danger};
             width: 100%;
             display: flex;
             justify-content: center;
@@ -784,7 +410,7 @@ const Styles = () => (
             padding: clamp(20px, 5vw, 30px);
             background: linear-gradient(160deg, var(--panel) 0%, var(--void) 100%);
             border: 1px solid var(--line);
-            clip-path: ${CHAMFER};
+            clip-path: ${En};
             overflow: hidden;
             isolation: isolate;
         }
@@ -839,7 +465,7 @@ const Styles = () => (
             color: var(--pink);
             border: 1px solid var(--pink);
             background: rgba(255,0,110,0.1);
-            clip-path: ${CHAMFER_SM};
+            clip-path: ${Dn};
         }
         .hhc-live-dot {
             width: 6px; height: 6px; border-radius: 50%;
@@ -882,7 +508,7 @@ const Styles = () => (
             letter-spacing: 0.08em;
             color: var(--void);
             background: var(--yellow);
-            clip-path: ${CHAMFER_SM};
+            clip-path: ${Dn};
             box-shadow: 0 0 16px rgba(245,255,0,0.4);
         }
 
@@ -908,7 +534,7 @@ const Styles = () => (
             padding: 16px 12px;
             background: var(--panel-alt);
             border: 1px solid var(--line-soft);
-            clip-path: ${CHAMFER_SM};
+            clip-path: ${Dn};
         }
         .hhc-countdown-tag {
             display: block;
@@ -1024,6 +650,6 @@ const Styles = () => (
             .hhc-segments { gap: 4px; }
         }
     `}</style>
-);
+  );
 
 export default HappyHourCountdown;

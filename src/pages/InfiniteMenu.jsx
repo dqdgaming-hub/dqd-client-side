@@ -67,7 +67,8 @@ const styles = {
   },
   hint: {
     position: 'absolute',
-    top: 'calc(14px + env(safe-area-inset-top, 0px))',
+    // below the floating logo / profile pills
+    top: 'calc(80px + env(safe-area-inset-top, 0px))',
     left: '50%',
     transform: 'translateX(-50%)',
     fontSize: 'clamp(0.58rem, 1.6vw, 0.66rem)',
@@ -1367,7 +1368,7 @@ export default function InfiniteMenu({ items, scale = 1.0 }) {
   // Build a WhatsApp message that names the active platform so the recipient
   // knows exactly which service the user wants to watch together on.
   const whatsappMsg = activeItem
-    ? `Hey! I want to watch book on DQD StreamSpace using ${activeItem.title}. Let's sync up! 🎬`
+    ? `Hey! I want to watch book on DQD StreamSpace using ${activeItem.title}. Let's sync up!`
     : `Hey! Let's watch together on StreamSpace`;
   const whatsappHref = `https://wa.me/?text=${encodeURIComponent(whatsappMsg)}`;
 

@@ -4,6 +4,7 @@
 
 import axios from 'axios'
 import { API_BASE_URL } from './config'
+import { getClientInfo } from '../utils/clientInfo'
 
 // ── 1. Base instance ─────────────────────────────────────────
 
@@ -36,7 +37,13 @@ export const tokenStorage = {
 // ── 3. Request interceptor ────────────────────────────────────
 
 apiClient.interceptors.request.use(
-  (config) => {
+  async (config) => {
+    const deviceId = localStorage.getItem('dqd_device_id')
+    if (deviceId) config.headers['X-Device-ID'] = deviceId
+    // Sign-in / sign-up requests carry real browser, OS and device details
+    if (config._skipAuth) {
+      try { config.headers['X-Client-Info'] = await getClientInfo() } catch { /* optional */ }
+    }
     if (config._skipAuth) return config
     const token = tokenStorage.getAccess()
     if (token) config.headers.Authorization = `Bearer ${token}`
@@ -122,10 +129,11 @@ export const authApi = {
     return data
   },
 
-  login: async (email, password) => {
+  // identifier = mobile number or email
+  login: async (identifier, password) => {
   const { data } = await apiClient.post(
     "/auth/login/",
-    { email, password },
+    { identifier, password },
     { _skipAuth: true }
   );
 

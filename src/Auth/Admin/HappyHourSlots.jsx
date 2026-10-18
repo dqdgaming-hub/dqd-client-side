@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import AdminLayout from "./AdminLayout";
 import { adminApi } from "../api/adminapi";
 
+import { Check, CircleAlert, Plus, X } from "lucide-react";
 const neon = { cyan: "#00f5ff", pink: "#ff2d78", yellow: "#ffe600", card: "#0d0d1a" };
 
 // ─── Styles ────────────────────────────────────────────────────────────────────
@@ -87,7 +88,7 @@ const styles = `
   .ahs-check-wrap { display: flex; align-items: center; gap: 0.75rem; cursor: pointer; height: 100%; }
   .ahs-checkbox { appearance: none; width: 18px; height: 18px; flex-shrink: 0; background: #0a0a14; border: 1px solid #1a1a3e; clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px)); cursor: pointer; position: relative; transition: border-color 0.2s; }
   .ahs-checkbox:checked { background: ${neon.yellow}22; border-color: ${neon.yellow}88; }
-  .ahs-checkbox:checked::after { content: '✓'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: ${neon.yellow}; font-size: 11px; }
+  .ahs-checkbox:checked::after { content: ''; position: absolute; top: 45%; left: 50%; width: 5px; height: 9px; border: solid ${neon.yellow}; border-width: 0 2px 2px 0; transform: translate(-50%, -50%) rotate(45deg); }
   .ahs-check-label { font-size: 0.75rem; color: #8a8aaa; letter-spacing: 0.08em; }
   .ahs-banner { font-size: 0.7rem; letter-spacing: 0.05em; padding: 0.65rem 1rem; margin-bottom: 1.25rem; border-left: 3px solid; display: flex; align-items: center; gap: 0.5rem; }
   .ahs-banner.success { background: #0a1a14; border-color: #00ff8855; color: #6affc0; }
@@ -175,7 +176,7 @@ function AddSlotPanel({ onSuccess, onCancel }) {
         <form onSubmit={submit} className="ahs-body">
           {status && (
             <div className={`ahs-banner ${status.type}`}>
-              <span>{status.type === "success" ? "✓" : "!"}</span>
+              <span>{status.type === "success" ? <Check size={14} aria-hidden="true" /> : <CircleAlert size={14} aria-hidden="true" />}</span>
               <span>{status.message}</span>
             </div>
           )}
@@ -304,7 +305,7 @@ export default function HappyHourSlots() {
               className="hs-btn hs-btn-primary"
               onClick={() => setShowAddForm((v) => !v)}
             >
-              {showAddForm ? "✕ Close" : "+ Add Slot"}
+              {showAddForm ? <><X className="ico" size="1.05em" aria-hidden="true" /> Close</> : <><Plus className="ico" size="1.05em" aria-hidden="true" /> Add Slot</>}
             </button>
           </div>
         </div>

@@ -4,6 +4,7 @@ import Layout from "../Layout";
 import { getHomePage } from "../api/homeapi";
 import PageLoader from "../../Loader/PageLoader";
 
+import { CarFront, RotateCcw, Siren, TriangleAlert, Zap } from "lucide-react";
 /* ═══════════════════════════════════════════════
    CONSTANTS
 ═══════════════════════════════════════════════ */
@@ -709,7 +710,7 @@ function RacingGame({ onRetry }) {
                 animate={{ y: [0, -6, 0] }}
                 transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
                 style={{ fontSize: 28 }}
-              >🏎️</motion.div>
+              ><CarFront size={30} aria-hidden="true" /></motion.div>
               <div className="overlay-title" style={{ color: "#c084fc" }}>Connection Lost</div>
               <div className="overlay-sub">Race while we reconnect</div>
               <motion.button
@@ -734,7 +735,7 @@ function RacingGame({ onRetry }) {
                 animate={{ scale: [1, 1.4, 1], rotate: [0, -15, 15, 0] }}
                 transition={{ duration: 0.5 }}
                 style={{ fontSize: 26 }}
-              >💥</motion.div>
+              ><Zap size={28} aria-hidden="true" /></motion.div>
               <div className="overlay-title" style={{ color: "#ff006e", fontSize: 13 }}>CRASHED!</div>
               <div className="overlay-sub">Resuming in 1s…</div>
             </motion.div>
@@ -754,7 +755,7 @@ function RacingGame({ onRetry }) {
                 animate={{ rotate: [0, -10, 10, -8, 8, 0] }}
                 transition={{ duration: 0.6, delay: 0.1 }}
                 style={{ fontSize: 28 }}
-              >🚨</motion.div>
+              ><Siren size={30} aria-hidden="true" /></motion.div>
               <div className="overlay-title" style={{ color: "#ff006e" }}>Game Over</div>
               <div>
                 <div className="hud-label" style={{ textAlign: "center", marginBottom: 4 }}>Score</div>
@@ -844,7 +845,7 @@ function ErrorScreen({ onRetry }) {
           animate={{ opacity: [0.6, 1, 0.6] }}
           transition={{ duration: 2, repeat: Infinity }}
         >
-          ⚠ Connection Failed
+          <TriangleAlert className="ico" size="1.05em" aria-hidden="true" /> Connection Failed
         </motion.div>
         <div style={{ fontFamily: "'Orbitron',monospace", fontSize: 9, letterSpacing: 3,
           color: "rgba(185,194,217,0.35)", textTransform: "uppercase" }}>
@@ -870,7 +871,7 @@ function ErrorScreen({ onRetry }) {
         transition={{ delay: 0.6 }}
       >
         <button className="retry-link" onClick={onRetry}>
-          ↺ Retry Connection
+          <RotateCcw className="ico" size="1.05em" aria-hidden="true" /> Retry Connection
         </button>
       </motion.div>
     </motion.div>

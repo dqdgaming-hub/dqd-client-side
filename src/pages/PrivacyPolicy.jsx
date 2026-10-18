@@ -1,224 +1,53 @@
 import { useEffect, useRef, useState } from "react";
-import { motion } from "framer-motion";
+import { ArrowUp, CalendarDays, Globe, List, Mail, MapPin, Phone, ShieldCheck } from "lucide-react";
+import { infoCss, PageHero, Rise } from "./infoPage";
 
-/* ═══════════════════════════════════════════════
-   DESIGN TOKENS
-   (matches the Home / RacingGame visual system:
-   near-black void, violet + gold accents, Orbitron
-   display type, angular corner brackets, scanlines)
-═══════════════════════════════════════════════ */
-const INK      = "#05040A";
-const SURFACE  = "#0d0c1e";
-const VIOLET   = "#7A2CFF";
-const VIOLET_L = "#c084fc";
-const GOLD     = "#D4AF37";
-const GOLD_L   = "#F4D886";
-const TEXT     = "#D8DAE8";
-const MUTED    = "rgba(185,194,217,0.55)";
-
-const CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Inter:wght@400;500;600&display=swap');
-
-  .pp-root {
-    position: relative;
-    min-height: 100vh;
-    background: ${INK};
-    color: ${TEXT};
-    font-family: 'Inter', -apple-system, sans-serif;
-    overflow-x: hidden;
-  }
-  .pp-root * { box-sizing: border-box; }
-
-  .pp-orb {
-    position: absolute; border-radius: 50%; pointer-events: none; filter: blur(90px); z-index: 0;
-  }
-  .pp-orb-1 { width: 480px; height: 480px; top: -12%; left: -10%;
-    background: radial-gradient(circle, rgba(122,44,255,0.16) 0%, transparent 70%); }
-  .pp-orb-2 { width: 380px; height: 380px; top: 40%; right: -12%;
-    background: radial-gradient(circle, rgba(212,175,55,0.10) 0%, transparent 70%); }
-  .pp-orb-3 { width: 420px; height: 420px; bottom: -14%; left: 20%;
-    background: radial-gradient(circle, rgba(122,44,255,0.08) 0%, transparent 70%); }
-
-  .pp-scanlines {
-    position: absolute; inset: 0; pointer-events: none; z-index: 0;
-    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.05) 2px, rgba(0,0,0,0.05) 4px);
-  }
-
-  .pp-topline {
-    position: absolute; top: 0; left: 0; right: 0; height: 2px; z-index: 1;
-    background: linear-gradient(90deg, transparent, ${VIOLET}, ${GOLD}, ${VIOLET}, transparent);
-  }
-
-  /* ── hero ── */
-  .pp-hero {
-    position: relative; z-index: 1;
-    padding: 76px 24px 48px;
-    display: flex; flex-direction: column; align-items: center; text-align: center;
-    border-bottom: 1px solid rgba(122,44,255,0.18);
-  }
-  .pp-corner { position: absolute; width: 22px; height: 22px; pointer-events: none; }
-  .pp-c-tl { top: 22px; left: 22px; border-top: 2px solid rgba(212,175,55,0.4); border-left: 2px solid rgba(212,175,55,0.4); }
-  .pp-c-tr { top: 22px; right: 22px; border-top: 2px solid rgba(212,175,55,0.4); border-right: 2px solid rgba(212,175,55,0.4); }
-
-  .pp-hex {
-    width: 56px; height: 56px;
-    border: 2px solid ${GOLD};
-    clip-path: polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
-    display: grid; place-items: center;
-    font-family: 'Orbitron', monospace; font-weight: 900; font-size: 20px; color: ${GOLD};
-    margin-bottom: 22px;
-    box-shadow: 0 0 24px rgba(212,175,55,0.25);
-  }
-  .pp-eyebrow {
-    font-family: 'Orbitron', monospace; font-size: 10px; letter-spacing: 0.35em;
-    color: ${VIOLET_L}; text-transform: uppercase; margin-bottom: 14px;
-  }
-  .pp-title {
-    font-family: 'Orbitron', monospace; font-weight: 900; font-size: clamp(28px, 5vw, 46px);
-    letter-spacing: 0.02em; line-height: 1.15; color: #fff; max-width: 720px;
-    background: linear-gradient(135deg, #fff 40%, ${GOLD_L} 100%);
-    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
-  }
-  .pp-sub {
-    margin-top: 16px; max-width: 560px; font-size: 15px; line-height: 1.7; color: ${MUTED};
-  }
-  .pp-meta-row {
-    margin-top: 26px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;
-  }
-  .pp-chip {
-    font-family: 'Orbitron', monospace; font-size: 9px; letter-spacing: 0.14em;
-    text-transform: uppercase; color: ${GOLD};
-    border: 1px solid rgba(212,175,55,0.35); padding: 7px 14px;
-    clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px));
-    background: rgba(212,175,55,0.06);
-  }
-
-  /* ── layout shell ── */
-  .pp-shell {
-    position: relative; z-index: 1;
-    max-width: 1120px; margin: 0 auto;
-    display: grid; grid-template-columns: 260px 1fr; gap: 48px;
-    padding: 48px 24px 100px;
-  }
-  @media (max-width: 860px) {
-    .pp-shell { grid-template-columns: 1fr; }
-  }
-
-  /* ── TOC ── */
-  .pp-toc-wrap { position: relative; }
-  .pp-toc {
-    position: sticky; top: 24px;
-    border: 1px solid rgba(122,44,255,0.22);
-    background: rgba(13,12,30,0.6);
-    backdrop-filter: blur(6px);
-    padding: 18px 16px;
-  }
-  .pp-toc-label {
-    font-family: 'Orbitron', monospace; font-size: 9px; letter-spacing: 0.3em;
-    color: ${MUTED}; text-transform: uppercase; margin-bottom: 12px; display: block;
-  }
-  .pp-toc-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
-  .pp-toc-item {
-    display: flex; align-items: center; gap: 10px;
-    padding: 8px 8px; cursor: pointer; border: none; background: none; width: 100%;
-    text-align: left; font-family: 'Inter', sans-serif; font-size: 12.5px;
-    color: ${MUTED}; border-left: 2px solid transparent;
-    transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
-  }
-  .pp-toc-item:hover { color: ${TEXT}; background: rgba(122,44,255,0.06); }
-  .pp-toc-item.active {
-    color: ${GOLD_L}; border-left: 2px solid ${GOLD};
-    background: rgba(212,175,55,0.06);
-  }
-  .pp-toc-dot {
-    width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0;
-    background: ${VIOLET}; box-shadow: 0 0 6px rgba(122,44,255,0.7);
-  }
-  .pp-toc-item.active .pp-toc-dot { background: ${GOLD}; box-shadow: 0 0 6px rgba(212,175,55,0.8); }
-
-  /* ── content ── */
-  .pp-content { min-width: 0; }
-  .pp-section {
-    padding: 30px 0; border-bottom: 1px solid rgba(255,255,255,0.06);
-    scroll-margin-top: 24px;
-  }
-  .pp-section:last-child { border-bottom: none; }
-  .pp-h2 {
-    display: flex; align-items: baseline; gap: 12px;
-    font-family: 'Orbitron', monospace; font-weight: 700; font-size: 18px;
-    color: #fff; letter-spacing: 0.01em; margin: 0 0 14px;
-  }
-  .pp-h2-index {
-    font-size: 11px; color: ${VIOLET_L}; font-weight: 900; opacity: 0.7;
-  }
-  .pp-h3 {
-    font-family: 'Inter', sans-serif; font-weight: 600; font-size: 14.5px;
-    color: ${GOLD_L}; margin: 22px 0 8px;
-  }
-  .pp-p { font-size: 14.5px; line-height: 1.8; color: ${TEXT}; margin: 0 0 12px; max-width: 68ch; }
-  .pp-p.muted { color: ${MUTED}; }
-  .pp-ul { margin: 0 0 14px; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; max-width: 68ch; }
-  .pp-ul li { font-size: 14.5px; line-height: 1.7; color: ${TEXT}; }
-  .pp-ul.dash { list-style: none; padding-left: 0; }
-  .pp-ul.dash li { position: relative; padding-left: 18px; }
-  .pp-ul.dash li::before {
-    content: ""; position: absolute; left: 0; top: 8px; width: 8px; height: 2px; background: ${VIOLET};
-  }
-  .pp-strong { color: ${GOLD_L}; font-weight: 600; }
-  .pp-link { color: ${VIOLET_L}; text-decoration: underline; text-underline-offset: 2px; }
-  .pp-link:hover { color: ${GOLD}; }
-
-  .pp-note {
-    margin: 6px 0 16px; padding: 12px 14px;
-    border-left: 2px solid ${VIOLET};
-    background: rgba(122,44,255,0.06);
-    font-size: 13.5px; line-height: 1.7; color: ${MUTED};
-    max-width: 68ch;
-  }
-
-  .pp-def-grid { display: flex; flex-direction: column; gap: 14px; }
-  .pp-def { max-width: 68ch; }
-  .pp-def-term {
-    font-family: 'Orbitron', monospace; font-size: 11px; letter-spacing: 0.05em;
-    color: ${GOLD}; text-transform: uppercase; margin-bottom: 4px; display: block;
-  }
-  .pp-def-body { font-size: 14.5px; line-height: 1.75; color: ${TEXT}; }
-
-  .pp-table-wrap { border: 1px solid rgba(122,44,255,0.2); margin: 4px 0 18px; max-width: 68ch; }
-  .pp-cookie-row { padding: 14px 16px; border-bottom: 1px solid rgba(122,44,255,0.14); }
-  .pp-cookie-row:last-child { border-bottom: none; }
-  .pp-cookie-name { font-family: 'Orbitron', monospace; font-size: 11px; color: ${VIOLET_L}; letter-spacing: 0.03em; margin-bottom: 6px; }
-  .pp-cookie-meta { font-size: 11.5px; color: ${MUTED}; margin-bottom: 6px; display: flex; gap: 14px; flex-wrap: wrap; }
-  .pp-cookie-meta b { color: ${MUTED}; font-weight: 600; }
-  .pp-cookie-purpose { font-size: 13.5px; line-height: 1.7; color: ${TEXT}; }
-
-  /* ── contact card ── */
-  .pp-contact {
-    margin-top: 8px;
-    border: 1px solid rgba(212,175,55,0.3);
-    background: linear-gradient(160deg, rgba(122,44,255,0.08), rgba(212,175,55,0.05));
-    padding: 26px 24px;
-    display: flex; flex-direction: column; gap: 14px;
-    clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px));
-  }
-  .pp-contact-title { font-family: 'Orbitron', monospace; font-size: 14px; color: #fff; letter-spacing: 0.04em; }
-  .pp-contact-row { display: flex; align-items: center; gap: 10px; font-size: 14px; color: ${TEXT}; }
-  .pp-contact-glyph {
-    width: 26px; height: 26px; flex-shrink: 0; display: grid; place-items: center;
-    border: 1px solid rgba(212,175,55,0.4); font-family: 'Orbitron', monospace; font-size: 10px; color: ${GOLD};
-    clip-path: polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
-  }
-
-  .pp-back-top {
-    display: inline-flex; align-items: center; gap: 8px; margin-top: 40px;
-    font-family: 'Orbitron', monospace; font-size: 10px; letter-spacing: 0.2em;
-    color: ${MUTED}; text-transform: uppercase; cursor: pointer; background: none; border: none;
-  }
-  .pp-back-top:hover { color: ${GOLD}; }
-
-  @media (prefers-reduced-motion: reduce) {
-    .pp-root * { animation: none !important; transition: none !important; }
-  }
+const css = `
+.pp-shell { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: clamp(18px, 3vw, 32px); align-items: start; }
+.pp-toc { position: sticky; top: 96px; max-height: calc(100vh - 120px); overflow-y: auto; padding: 18px 14px; }
+.pp-toc .ip-card-label { margin: 0 6px 12px; font-size: 13px; }
+.pp-toc ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.pp-toc button { width: 100%; display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 6px 10px; border: 0; border-radius: 10px; cursor: pointer;
+  text-align: left; background: transparent; color: #a9a3c8; font: 600 15px/1.25 'Rajdhani', sans-serif; letter-spacing: .03em; transition: color .2s, background .2s; }
+.pp-toc button:hover { color: #fff; background: rgba(255,255,255,.04); }
+.pp-toc button i { width: 6px; height: 6px; flex: none; border-radius: 50%; background: rgba(255,255,255,.2); transition: background .2s, box-shadow .2s; }
+.pp-toc button.active { color: #fff; background: color-mix(in srgb, var(--acc) 10%, transparent); }
+.pp-toc button.active i { background: var(--acc); box-shadow: 0 0 8px var(--acc); }
+.pp-content { display: grid; gap: 16px; min-width: 0; }
+.pp-section { scroll-margin-top: 96px; }
+.pp-h2 { display: flex; align-items: baseline; gap: 12px; margin: 0 0 14px; font: 900 clamp(17px, 2.4vw, 21px)/1.3 'Orbitron', sans-serif; letter-spacing: .03em; color: #fff; }
+.pp-h2 span { flex: none; font: 700 13px/1 'Share Tech Mono', monospace; letter-spacing: .1em; color: var(--acc); }
+.pp-h3 { margin: 18px 0 8px; font: 700 13px/1.3 'Share Tech Mono', monospace; letter-spacing: .16em; text-transform: uppercase; color: var(--acc); }
+.pp-p { margin: 0 0 12px; color: #c3bedd; font: 400 15.5px/1.7 'Inter', sans-serif; }
+.pp-p:last-child { margin-bottom: 0; }
+.pp-p.muted { color: #9b95bb; }
+.pp-strong { color: #fff; font-weight: 600; }
+.pp-ul { margin: 0 0 12px; padding: 0; list-style: none; display: grid; gap: 8px; }
+.pp-ul li { position: relative; padding-left: 20px; color: #c3bedd; font: 400 15.5px/1.6 'Inter', sans-serif; }
+.pp-ul li::before { content: ""; position: absolute; left: 2px; top: .7em; width: 8px; height: 2px; border-radius: 2px; background: var(--acc); }
+.pp-def-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr)); gap: 10px; }
+.pp-def, .pp-cookie-row { padding: 14px 16px; border-radius: 14px; background: rgba(255,255,255,.025); border: 1px solid rgba(255,255,255,.07); }
+.pp-def-term, .pp-cookie-name { display: block; margin-bottom: 6px; font: 700 14px/1.3 'Orbitron', sans-serif; letter-spacing: .03em; color: #fff; }
+.pp-def-body, .pp-cookie-purpose { margin: 0; color: #a9a3c8; font: 400 14.5px/1.6 'Inter', sans-serif; }
+.pp-table-wrap { display: grid; gap: 10px; }
+.pp-cookie-meta { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-bottom: 6px; color: #9b95bb; font-size: 14px; }
+.pp-cookie-meta b { color: var(--acc); font-weight: 600; }
+.pp-note { margin: 0 0 12px; padding: 12px 14px; border-radius: 12px; border-left: 3px solid var(--acc); color: #d6d1ee;
+  background: color-mix(in srgb, var(--acc) 7%, transparent); font: 400 15px/1.6 'Inter', sans-serif; }
+.pp-contact { display: grid; gap: 12px; padding: 16px; border-radius: 14px; background: rgba(255,255,255,.025); border: 1px solid rgba(255,255,255,.07); }
+.pp-contact-title { font: 900 15px/1.2 'Orbitron', sans-serif; color: #fff; }
+.pp-contact .ip-row { align-items: center; color: #d6d1ee; font-size: 15.5px; }
+.pp-contact .ip-ico { width: 36px; height: 36px; }
+.pp-link { overflow-wrap: anywhere; }
+.pp-back-top { justify-self: start; }
+@media (max-width: 900px) {
+  .pp-shell { grid-template-columns: 1fr; }
+  .pp-toc { position: static; max-height: none; }
+  .pp-toc ul { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+  .pp-toc ul::-webkit-scrollbar { display: none; }
+  .pp-toc li { flex: none; }
+  .pp-toc button { width: auto; white-space: nowrap; border: 1px solid rgba(255,255,255,.1); border-radius: 999px; padding: 6px 14px; }
+}
 `;
 
 /* ═══════════════════════════════════════════════
@@ -278,24 +107,19 @@ const COOKIE_TYPES = [
   },
 ];
 
-/* ═══════════════════════════════════════════════
-   SMALL HELPERS
-═══════════════════════════════════════════════ */
+
 function Section({ id, index, title, children }) {
   return (
-    <section id={id} className="pp-section">
+    <Rise as="section" id={id} className="ip-card pp-section">
       <h2 className="pp-h2">
-        <span className="pp-h2-index">{String(index).padStart(2, "0")}</span>
+        <span>{String(index).padStart(2, "0")}</span>
         {title}
       </h2>
       {children}
-    </section>
+    </Rise>
   );
 }
 
-/* ═══════════════════════════════════════════════
-   PRIVACY POLICY PAGE
-═══════════════════════════════════════════════ */
 export default function PrivacyPolicy() {
   const [active, setActive] = useState(SECTIONS[0].id);
   const observerRef = useRef(null);
@@ -322,58 +146,38 @@ export default function PrivacyPolicy() {
   };
 
   return (
-    <div className="pp-root">
-      <style>{CSS}</style>
-      <div className="pp-scanlines" />
-      <div className="pp-orb pp-orb-1" />
-      <div className="pp-orb pp-orb-2" />
-      <div className="pp-orb pp-orb-3" />
-      <div className="pp-topline" />
+    <div className="ip">
+      <style>{infoCss + css}</style>
 
-      {/* ── hero ── */}
-      <motion.header
-        className="pp-hero"
-        initial={{ opacity: 0, y: -16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, ease: "easeOut" }}
+      <PageHero
+        eyebrow="DQD Gaming Hub"
+        title="Privacy"
+        accent="Policy"
+        sub="How we collect, use, and protect your information when you use our service — and the choices you have about it."
       >
-        
-        <span className="pp-eyebrow">DQD Gaming Hub</span>
-        <h1 className="pp-title">Privacy Policy</h1>
-        <p className="pp-sub">
-          How we collect, use, and protect your information when you use our service —
-          and the choices you have about it.
-        </p>
-        <div className="pp-meta-row">
-          <span className="pp-chip">Last Updated · Sep 12, 2026</span>
-          <span className="pp-chip">Kerala, India</span>
-        </div>
-      </motion.header>
+        <span className="ip-chip"><CalendarDays size={16} aria-hidden="true" /> Last Updated · Sep 12, 2026</span>
+        <span className="ip-chip alt"><MapPin size={16} aria-hidden="true" /> Kerala, India</span>
+      </PageHero>
 
-      {/* ── body ── */}
-      <div className="pp-shell">
-        {/* TOC */}
-        <div className="pp-toc-wrap">
-          <nav className="pp-toc">
-            <span className="pp-toc-label">On This Page</span>
-            <ul className="pp-toc-list">
+      <div className="ip-body">
+        <div className="pp-shell">
+          <nav className="ip-card pp-toc" aria-label="On this page">
+            <h2 className="ip-card-label"><List size={16} aria-hidden="true" /> On This Page</h2>
+            <ul>
               {SECTIONS.map((s) => (
                 <li key={s.id}>
-                  <button
-                    className={`pp-toc-item${active === s.id ? " active" : ""}`}
-                    onClick={() => scrollTo(s.id)}
-                  >
-                    <span className="pp-toc-dot" />
+                  <button type="button" className={active === s.id ? "active" : ""} onClick={() => scrollTo(s.id)}>
+                    <i aria-hidden="true" />
                     {s.label}
                   </button>
                 </li>
               ))}
             </ul>
           </nav>
-        </div>
 
-        {/* content */}
-        <main className="pp-content">
+          <main className="pp-content">
+          <div className="ip-card">
+          <h2 className="ip-card-label"><ShieldCheck size={18} aria-hidden="true" /> Overview</h2>
           <p className="pp-p muted">
             This Privacy Policy describes our policies and procedures on the collection, use,
             and disclosure of your information when you use the service, and tells you about
@@ -381,6 +185,7 @@ export default function PrivacyPolicy() {
             provide and improve the service, and we collect, use, and disclose it only where we
             have a valid legal basis to do so, including your consent where consent is required.
           </p>
+          </div>
 
           <Section id="definitions" index={1} title="Interpretation & Definitions">
             <p className="pp-p">
@@ -615,33 +420,34 @@ export default function PrivacyPolicy() {
             </p>
             <div className="pp-contact">
               <span className="pp-contact-title">DQD Gaming Hub</span>
-              <div className="pp-contact-row">
-                <span className="pp-contact-glyph">@</span>
+              <div className="ip-row">
+                <span className="ip-ico"><Mail size={16} aria-hidden="true" /></span>
                 <a className="pp-link" href="mailto:dqdgaminghub3003@gmail.com">
                   dqdgaminghub3003@gmail.com
                 </a>
               </div>
-              <div className="pp-contact-row">
-                <span className="pp-contact-glyph">#</span>
+              <div className="ip-row">
+                <span className="ip-ico"><Phone size={16} aria-hidden="true" /></span>
                 <a className="pp-link" href="tel:+917947105311">+91 79471 05311</a>
               </div>
-              <div className="pp-contact-row">
-                <span className="pp-contact-glyph">W</span>
+              <div className="ip-row">
+                <span className="ip-ico"><Globe size={16} aria-hidden="true" /></span>
                 <a className="pp-link" href="https://www.dqdgaming.com" target="_blank" rel="external nofollow noopener">
                   www.dqdgaming.com
                 </a>
               </div>
-              <div className="pp-contact-row">
-                <span className="pp-contact-glyph">*</span>
+              <div className="ip-row">
+                <span className="ip-ico"><MapPin size={16} aria-hidden="true" /></span>
                 Kadavanthra Jn, Ernakulam, Cochin-20, opposite KR Bakers, Kerala, India
               </div>
             </div>
           </Section>
 
-          <button className="pp-back-top" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
-            ↑ Back to top
+          <button type="button" className="ip-btn ghost pp-back-top" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
+            <ArrowUp size={16} aria-hidden="true" /> Back to top
           </button>
-        </main>
+          </main>
+        </div>
       </div>
     </div>
   );

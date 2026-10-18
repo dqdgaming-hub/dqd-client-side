@@ -1,10 +1,10 @@
 import { motion } from "framer-motion";
 
 const PAY_CONFIG = {
-  paid:    { color: "#00FFB2", label: "PAID",    icon: "✦" },
-  pending: { color: "#F4B942", label: "PENDING", icon: "⏳" },
-  failed:  { color: "#FF4D6D", label: "FAILED",  icon: "✕" },
-  refunded:{ color: "#B9C2D9", label: "REFUNDED",icon: "↩" },
+  paid:    { color: "#00FFB2", label: "PAID" },
+  pending: { color: "#F4B942", label: "PENDING" },
+  failed:  { color: "#FF4D6D", label: "FAILED" },
+  refunded:{ color: "#B9C2D9", label: "REFUNDED" },
 };
 
 export default function PaymentStatusBadge({ status }) {

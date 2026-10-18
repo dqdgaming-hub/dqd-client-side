@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import AdminLayout from "./AdminLayout";
 import { adminApi } from "../api/adminapi";
 
+import { CloudDownload, FileSpreadsheet, FileText } from "lucide-react";
 const theme = {
   bg: "#0a0a0f", surface: "#0d0d1a", card: "#111122", border: "#1a1a2e",
   cyan: "#00f5ff", pink: "#ff006e", yellow: "#ffd60a", green: "#39ff14",
@@ -340,17 +341,17 @@ downloadBlob(blob, "Accounting_Report.xlsx");
         <div className="section-label">Export</div>
         <div className="export-grid">
           <div className="export-tile et-red" data-disabled={loading} onClick={downloadPDF}>
-            <div className="export-tile-icon">📄</div>
+            <div className="export-tile-icon"><FileText size={26} aria-hidden="true" /></div>
             <div className="export-tile-label">Download PDF</div>
             <div className="export-tile-desc">Full accounting report as PDF</div>
           </div>
           <div className="export-tile et-green" data-disabled={loading} onClick={downloadExcel}>
-            <div className="export-tile-icon">📊</div>
+            <div className="export-tile-icon"><FileSpreadsheet size={26} aria-hidden="true" /></div>
             <div className="export-tile-label">Download Excel</div>
             <div className="export-tile-desc">Spreadsheet with all transactions</div>
           </div>
           <div className="export-tile et-blue" data-disabled={loading} onClick={syncGoogle}>
-            <div className="export-tile-icon">☁</div>
+            <div className="export-tile-icon"><CloudDownload size={26} aria-hidden="true" /></div>
             <div className="export-tile-label">Sync Google Sheets</div>
             <div className="export-tile-desc">Push live data to Google Sheets</div>
           </div>

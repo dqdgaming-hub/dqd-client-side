@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import AdminLayout from "./AdminLayout";
 import { adminApi } from "../api/adminapi";
 
+import { Check, CircleAlert } from "lucide-react";
 const neon = { cyan: "#00f5ff", pink: "#ff2d78", yellow: "#ffe600",  card: "#0d0d1a" };
 
 const styles = `
@@ -230,7 +231,7 @@ export default function AddSpinnerReward() {
           <form onSubmit={submit} className="asr-body">
             {status && (
               <div className={`asr-banner ${status.type}`}>
-                <span>{status.type === "success" ? "✓" : "!"}</span>
+                <span>{status.type === "success" ? <Check size={14} aria-hidden="true" /> : <CircleAlert size={14} aria-hidden="true" />}</span>
                 <span>{status.message}</span>
               </div>
             )}

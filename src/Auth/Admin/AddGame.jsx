@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import AdminLayout from "./AdminLayout";
 import { adminCss } from "./adminTheme";
 
+import { TriangleAlert, Upload } from "lucide-react";
 export default function AddGame() {
   const navigate = useNavigate();
   const [categories, setCategories] = useState([]);
@@ -93,7 +94,7 @@ export default function AddGame() {
             </button>
           </section>
 
-          {error && <div className="adm-alert">⚠ {error}</div>}
+          {error && <div className="adm-alert"><TriangleAlert className="ico" size="1.05em" aria-hidden="true" /> {error}</div>}
 
           {/* ── Form panel ── */}
           <article className="adm-panel">
@@ -156,7 +157,7 @@ export default function AddGame() {
                     <label className="adm-label">Cover Image</label>
                     <div className="adm-file-wrap">
                       <div className="adm-file-btn">
-                        ⬆ {form.image ? "Change image" : "Upload image"}
+                        <Upload className="ico" size="1.05em" aria-hidden="true" /> {form.image ? "Change image" : "Upload image"}
                       </div>
                       <input
                         type="file"

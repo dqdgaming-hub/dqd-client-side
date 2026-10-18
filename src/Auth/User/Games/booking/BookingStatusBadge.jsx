@@ -1,10 +1,10 @@
 import { motion } from "framer-motion";
 
 const STATUS_CONFIG = {
-  pending:   { color: "#F4B942", glow: "#F4B94255", label: "PENDING",   icon: "⏳" },
-  confirmed: { color: "#00FFB2", glow: "#00FFB255", label: "CONFIRMED", icon: "✦" },
-  completed: { color: "#7A2CFF", glow: "#7A2CFF55", label: "COMPLETED", icon: "◆" },
-  cancelled: { color: "#FF4D6D", glow: "#FF4D6D55", label: "CANCELLED", icon: "✕" },
+  pending:   { color: "#F4B942", glow: "#F4B94255", label: "PENDING" },
+  confirmed: { color: "#00FFB2", glow: "#00FFB255", label: "CONFIRMED" },
+  completed: { color: "#7A2CFF", glow: "#7A2CFF55", label: "COMPLETED" },
+  cancelled: { color: "#FF4D6D", glow: "#FF4D6D55", label: "CANCELLED" },
 };
 
 export default function BookingStatusBadge({ status }) {

@@ -1,8 +1,9 @@
+/* Base page shell for public routes; colours and fonts come from index.css tokens. */
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
-  background: #0f0f1a;
-  color: #e0e0ff;
-  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: var(--dqd-bg);
+  color: var(--dqd-text);
+  font-family: var(--dqd-font-body);
   min-height: 100vh;
 }
 .main-content { min-height: calc(100vh - 65px); }

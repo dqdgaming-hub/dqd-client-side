@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import emailjs from "@emailjs/browser";
 import { emailjsConfig } from "../../Auth/User/DashboardComponents/emailjsConfig";
 
+import { TriangleAlert } from "lucide-react";
 /* ══════════════════════════════════════════════
    THEME
 ══════════════════════════════════════════════ */
@@ -524,7 +525,7 @@ export default function MapAndEnquiry({ onSubmit }) {
                   <div>
                     {error && (
                       <div className="dqmq2-error">
-                        ⚠ {error}
+                        <TriangleAlert className="ico" size="1.05em" aria-hidden="true" /> {error}
                       </div>
                     )}
 

@@ -1,753 +1,306 @@
-import { useState, useEffect, useRef, useCallback, lazy, Suspense } from "react";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import {
+  ArrowRight, CalendarDays, ChevronLeft, ChevronRight, Clock, Gamepad2, IndianRupee, Pause, Play, Ticket, Users,
+} from "lucide-react";
+import { resolveImage } from "../../../components/home/homeStyles";
+import { niceDate, niceTime } from "../common/userUi";
 
-// ─── Fonts ────────────────────────────────────────────────────────────────────
-const FONT_LINK = "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap";
+// Dashboard banner: upcoming exclusive events (bookable), the player's own
+// upcoming event bookings, then featured games. One slide at a time, swipe on
+// phones, arrows / dots / thumbnails everywhere. Titles and text are clamped so
+// long names never push the buttons around.
 
-// ─── Design Tokens ────────────────────────────────────────────────────────────
-const T = {
-  gold:       "#C9A84C",
-  goldLight:  "#E8CC80",
-  goldDim:    "rgba(201,168,76,0.18)",
-  goldBorder: "rgba(201,168,76,0.35)",
-  white:      "#FFFFFF",
-  offWhite:   "rgba(255,255,255,0.88)",
-  muted:      "rgba(255,255,255,0.52)",
-  faint:      "rgba(255,255,255,0.12)",
-  bg:         "#080808",
-  serif:      "'Cormorant Garamond', 'Georgia', serif",
-  sans:       "'DM Sans', system-ui, sans-serif",
+const css = `
+.bn { --acc: #00f5ff; --acc2: #7b2fff; position: relative; isolation: isolate; overflow: hidden; width: 100%;
+  min-height: clamp(540px, 82svh, 760px); display: flex; flex-direction: column; background: #05040a; color: #fff;
+  font-family: 'Rajdhani', 'Inter', sans-serif; user-select: none; touch-action: pan-y; }
+.bn.event { --acc: #ff2d78; --acc2: #ffd60a; }
+.bn.booked { --acc: #ffd60a; --acc2: #ff9f1c; }
+
+.bn-bg { position: absolute; inset: 0; z-index: -2; background: radial-gradient(circle at 70% 35%, #1d1840, #05040a 70%); }
+.bn-bg img { width: 100%; height: 100%; object-fit: cover; animation: bn-zoom 9s ease-out both; }
+.bn-bg .ph { position: absolute; inset: 0; display: grid; place-items: start end; padding: 90px 6% 0 0; color: color-mix(in srgb, var(--acc) 55%, transparent);
+  background: radial-gradient(circle at 80% 30%, color-mix(in srgb, var(--acc) 18%, transparent), transparent 55%); }
+.bn-bg .ph svg { width: clamp(120px, 24vw, 300px); height: auto; opacity: .22; transform: rotate(-12deg); }
+@media (min-width: 1024px) { .bn-bg .ph { place-items: center end; padding: 0 12% 0 0; } }
+.bn-shade { position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(90deg, rgba(5,4,10,.94) 0%, rgba(5,4,10,.7) 45%, rgba(5,4,10,.15) 100%),
+    linear-gradient(0deg, #05040a 0%, rgba(5,4,10,.2) 45%, rgba(5,4,10,.6) 100%); }
+.bn-shade::after { content: ""; position: absolute; left: -10%; bottom: -30%; width: 60%; height: 70%; border-radius: 50%; filter: blur(60px);
+  background: color-mix(in srgb, var(--acc) 22%, transparent); }
+@keyframes bn-zoom { from { transform: scale(1.08); } to { transform: scale(1); } }
+@keyframes bn-in { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+
+.bn-in { position: relative; flex: 1; width: 100%; max-width: 1280px; margin: 0 auto; display: flex; flex-direction: column; justify-content: flex-end;
+  padding: 96px clamp(16px, 4vw, 40px) calc(96px + env(safe-area-inset-bottom)); }
+.bn-copy { max-width: 620px; min-width: 0; }
+.bn-copy > * { animation: bn-in .6s cubic-bezier(.22,1,.36,1) backwards; }
+.bn-copy > :nth-child(2) { animation-delay: .06s; } .bn-copy > :nth-child(3) { animation-delay: .12s; }
+.bn-copy > :nth-child(4) { animation-delay: .18s; } .bn-copy > :nth-child(5) { animation-delay: .24s; }
+.bn-kicker { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 14px; padding: 7px 12px; border-radius: 999px;
+  font: 700 11.5px/1 'Share Tech Mono', monospace; letter-spacing: .18em; text-transform: uppercase; color: #fff;
+  background: color-mix(in srgb, var(--acc) 16%, rgba(5,4,10,.6)); border: 1px solid color-mix(in srgb, var(--acc) 50%, transparent);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); max-width: 100%; }
+.bn-kicker svg { color: var(--acc); flex: none; }
+.bn-kicker span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bn-title { margin: 0 0 14px; font: 900 clamp(28px, 5.4vw, 60px)/1.05 'Orbitron', sans-serif; text-transform: uppercase; letter-spacing: .01em;
+  overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  text-shadow: 0 4px 30px rgba(0,0,0,.5); }
+.bn-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.bn-meta span { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 12px; border-radius: 10px; font-weight: 700; font-size: 15px;
+  color: #e6e3f5; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); white-space: nowrap; }
+.bn-meta svg { color: var(--acc); flex: none; }
+.bn-desc { margin: 0 0 22px; max-width: 520px; color: #b7b1d6; font-size: 17px; line-height: 1.5;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.bn-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.bn-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 50px; padding: 0 22px; border-radius: 14px;
+  text-decoration: none; white-space: nowrap; font: 800 12.5px/1 'Orbitron', sans-serif; letter-spacing: .1em; text-transform: uppercase;
+  color: #05040a; background: linear-gradient(135deg, var(--acc), color-mix(in srgb, var(--acc) 55%, #fff));
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--acc) 35%, transparent); transition: transform .2s, box-shadow .25s; }
+.bn-btn:hover { transform: translateY(-2px); box-shadow: 0 14px 34px color-mix(in srgb, var(--acc) 50%, transparent); }
+.bn-btn.ghost { color: #fff; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.18); box-shadow: none;
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.bn-btn.ghost:hover { border-color: var(--acc); }
+.bn-btn svg { flex: none; transition: transform .2s; } .bn-btn:hover svg { transform: translateX(3px); }
+
+.bn-bar { display: flex; align-items: center; gap: 12px; margin-top: 28px; }
+.bn-arrow { width: 44px; height: 44px; flex: none; display: grid; place-items: center; border-radius: 12px; cursor: pointer; color: #fff;
+  background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.16); transition: border-color .2s, background .2s;
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.bn-arrow:hover { border-color: var(--acc); background: color-mix(in srgb, var(--acc) 14%, transparent); }
+.bn-dots { display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; }
+.bn-dot { position: relative; overflow: hidden; width: 8px; height: 8px; flex: none; padding: 0; border: 0; border-radius: 99px; cursor: pointer;
+  background: rgba(255,255,255,.25); transition: width .35s cubic-bezier(.22,1,.36,1), background .3s; }
+.bn-dot.on { width: 30px; background: rgba(255,255,255,.18); }
+.bn-dot.on::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--acc); transform-origin: left;
+  animation: bn-fill var(--dur, 6s) linear both; }
+.bn.paused .bn-dot.on::after { animation-play-state: paused; }
+@keyframes bn-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.bn-count { margin-left: auto; font: 700 13px/1 'Share Tech Mono', monospace; letter-spacing: .12em; color: #a9a3c8; white-space: nowrap; }
+.bn-count b { color: #fff; font-size: 18px; }
+
+.bn-thumbs { position: absolute; right: clamp(16px, 4vw, 40px); bottom: calc(96px + env(safe-area-inset-bottom)); display: none; gap: 10px; max-width: 46%;
+  overflow-x: auto; scrollbar-width: none; padding: 4px; }
+.bn-thumbs::-webkit-scrollbar { display: none; }
+.bn-thumb { --acc: #00f5ff; position: relative; flex: none; width: 128px; height: 84px; padding: 0; overflow: hidden; border-radius: 14px; cursor: pointer;
+  border: 1px solid rgba(255,255,255,.14); background: radial-gradient(circle at 50% 40%, #1d1840, #0a0a18); color: #fff; text-align: left;
+  opacity: .62; transition: opacity .25s, transform .25s, border-color .25s; }
+.bn-thumb.event { --acc: #ff2d78; } .bn-thumb.booked { --acc: #ffd60a; }
+.bn-thumb:hover { opacity: .9; transform: translateY(-3px); }
+.bn-thumb.on { opacity: 1; border-color: var(--acc); box-shadow: 0 0 0 1px var(--acc), 0 10px 24px rgba(0,0,0,.45); }
+.bn-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.bn-thumb > svg { position: absolute; top: 50%; left: 50%; translate: -50% -60%; color: var(--acc); opacity: .6; }
+.bn-thumb span { position: absolute; left: 0; right: 0; bottom: 0; padding: 18px 8px 6px; font: 700 11px/1.2 'Rajdhani', sans-serif; letter-spacing: .04em;
+  background: linear-gradient(0deg, rgba(5,4,10,.95), transparent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.bn-empty { display: grid; place-items: center; gap: 12px; min-height: 380px; padding: 96px 16px; text-align: center; color: #a9a3c8; }
+.bn-empty svg { color: #00f5ff; }
+
+@media (min-width: 1024px) {
+  .bn-thumbs { display: flex; }
+  .bn-in { justify-content: center; }
+  .bn-copy, .bn-bar { max-width: min(620px, 50%); }
+}
+@media (max-width: 640px) {
+  .bn-in { padding-top: 88px; }
+  .bn-desc { font-size: 15.5px; }
+  .bn-meta span { font-size: 14px; }
+  .bn-actions .bn-btn { flex: 1 1 auto; }
+  .bn-bar { margin-top: 22px; }
+}
+@media (max-width: 380px) { .bn-actions .bn-btn { flex-basis: 100%; } }
+@media (prefers-reduced-motion: reduce) {
+  .bn-bg img, .bn-copy > * { animation: none; }
+  .bn-dot.on::after { animation: none; transform: none; }
+}
+`;
+
+const money = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 0 })}` : null;
 };
 
-// ─── Inline SVG Icons ─────────────────────────────────────────────────────────
-const ChevronLeft = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <polyline points="15 18 9 12 15 6" />
-  </svg>
-);
-const ChevronRight = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <polyline points="9 18 15 12 9 6" />
-  </svg>
-);
-const PinIcon = () => (
-  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
-  </svg>
-);
-const CalIcon = () => (
-  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-  </svg>
-);
-const LinkIcon = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
-  </svg>
-);
-const SaveIcon = ({ saved }) => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill={saved ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
-  </svg>
-);
-
-// ─── Normalizer ───────────────────────────────────────────────────────────────
-function normalizeEvent(ev, idx) {
+function eventSlide(e) {
   return {
-    id:          `event-${ev.id ?? idx}`,
-    type:        "event",
-    title:       ev.title || ev.event_title || "Upcoming Event",
-    date:        ev.date || ev.event_date || "",
-    image:       ev.image || ev.event_image || ev.cover || "",
-    description: ev.description || ev.summary || "",
-    place:       ev.place || ev.location || ev.venue || "",
-    tag:         ev.tag || ev.category || ev.type || "Event",
+    key: `event-${e.id}`,
+    kind: "event",
+    label: "Exclusive event",
+    title: e.title || "Upcoming event",
+    image: e.image,
+    text: e.description,
+    date: e.event_date,
+    start: e.start_time,
+    price: money(e.price),
+    priceUnit: "/ seat",
+    seats: e.available_slots,
+    cta: { to: `/user/book/event/${e.id}`, label: "Book a seat" },
+    more: { to: "/user/events", label: "All events" },
   };
 }
 
-function normalizeGame(game, idx) {
+function bookedSlide(b) {
   return {
-    id:          `game-${game.id ?? idx}`,
-    type:        "game",
-    gameId:      game.id,
-    title:       game.name || "Featured Game",
-    date:        "",
-    image:       game.image || game.cover || "",
-    description: game.description || "",
-    place:       "",
-    tag:         game.category_name || "Game",
-    price:       game.price_per_hour,
+    key: `booked-${b.id}`,
+    kind: "booked",
+    label: `You're going · ${b.status || "booked"}`,
+    title: b.event_title || "Your event",
+    image: b.event_image,
+    text: b.event_description,
+    date: b.event_date,
+    start: b.start_time,
+    id: b.booking_id,
+    cta: { to: "/user/bookings", label: "View booking" },
+    more: { to: "/user/events", label: "More events" },
   };
 }
 
-// ─── Lazy Image ───────────────────────────────────────────────────────────────
-function LazyImage({ src, alt, style }) {
-  const [state, setState] = useState(src ? "loading" : "error");
-  const imgRef = useRef(null);
+function gameSlide(g) {
+  return {
+    key: `game-${g.id}`,
+    kind: "game",
+    label: g.category_name || "Featured game",
+    title: g.name || "Featured game",
+    image: g.image,
+    text: g.description,
+    price: money(g.price_per_hour),
+    priceUnit: "/ hour",
+    cta: { to: `/user/games/${g.id}/book`, label: "Book now" },
+    more: { to: `/user/games/${g.id}`, label: "Details" },
+  };
+}
+
+const KIND_ICON = { event: Ticket, booked: CalendarDays, game: Gamepad2 };
+
+function Thumb({ slide, on, onClick }) {
+  const Icon = KIND_ICON[slide.kind];
+  const img = resolveImage(slide.image);
+  return (
+    <button type="button" className={`bn-thumb ${slide.kind}${on ? " on" : ""}`} onClick={onClick}
+      aria-label={`Show ${slide.title}`} aria-current={on ? "true" : undefined}>
+      {img ? <img src={img} alt="" loading="lazy" /> : <Icon size={26} aria-hidden="true" />}
+      <span>{slide.title}</span>
+    </button>
+  );
+}
+
+function ExclusiveEventsCarousel({ events, games, bookings, autoPlayMs = 6000 }) {
+  const today = new Date().toISOString().slice(0, 10);
+  const evs = (Array.isArray(events) ? events : []).map(eventSlide);
+  const evIds = new Set((Array.isArray(events) ? events : []).map((e) => String(e.id)));
+  const mine = (Array.isArray(bookings) ? bookings : [])
+    .filter((b) => b && b.event_date >= today && !["cancelled", "rejected"].includes(b.status) && !evIds.has(String(b.event)))
+    .sort((a, b) => String(a.event_date).localeCompare(String(b.event_date)))
+    .slice(0, 3)
+    .map(bookedSlide);
+  const gms = (Array.isArray(games) ? games : []).filter((g) => g && !g.maintenance_mode && g.id != null).slice(0, 6).map(gameSlide);
+  const slides = [...evs, ...mine, ...gms];
+
+  const [index, setIndex] = useState(0);
+  const [paused, setPaused] = useState(false); // pause button
+  const [hover, setHover] = useState(false); // mouse over the banner
+  const touchX = useRef(null);
+  const n = slides.length;
+  const cur = Math.min(index, Math.max(n - 1, 0));
+
+  const go = useCallback((i) => setIndex(((i % n) + n) % n), [n]);
 
   useEffect(() => {
-    if (!src) { setState("error"); return; }
-    setState("loading");
-    const img = new Image();
-    img.src = src;
-    img.onload  = () => setState("loaded");
-    img.onerror = () => setState("error");
-    return () => { img.onload = null; img.onerror = null; };
-  }, [src]);
+    if (n < 2 || paused || hover) return undefined;
+    const t = setTimeout(() => go(cur + 1), autoPlayMs);
+    return () => clearTimeout(t);
+  }, [cur, n, paused, hover, autoPlayMs, go]);
+
+  if (!n) {
+    return (
+      <section className="bn bn-empty" aria-label="Featured">
+        <style>{css}</style>
+        <Gamepad2 size={40} aria-hidden="true" />
+        <p>No featured events or games right now.</p>
+        <Link className="bn-btn" to="/user/game-items">Browse games <ArrowRight size={16} aria-hidden="true" /></Link>
+      </section>
+    );
+  }
+
+  const s = slides[cur];
+  const Icon = KIND_ICON[s.kind];
+  const img = resolveImage(s.image);
 
   return (
-    <div style={{ position: "absolute", inset: 0, ...style }}>
-      {/* Placeholder shimmer */}
-      {state === "loading" && (
-        <div style={{
-          position: "absolute", inset: 0,
-          background: "linear-gradient(110deg, #111 25%, #1a1a1a 50%, #111 75%)",
-          backgroundSize: "200% 100%",
-          animation: "shimmer 1.6s infinite linear",
-        }} />
-      )}
-      {/* Error fallback — abstract geometric pattern */}
-      {state === "error" && (
-        <svg width="100%" height="100%" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-          <rect width="400" height="300" fill="#0e0e0e"/>
-          <line x1="0" y1="0" x2="400" y2="300" stroke={T.goldBorder} strokeWidth="0.5"/>
-          <line x1="400" y1="0" x2="0" y2="300" stroke={T.goldBorder} strokeWidth="0.5"/>
-          <circle cx="200" cy="150" r="80" fill="none" stroke={T.goldBorder} strokeWidth="0.5"/>
-          <circle cx="200" cy="150" r="50" fill="none" stroke={T.goldBorder} strokeWidth="0.5"/>
-          <circle cx="200" cy="150" r="20" fill="none" stroke={T.goldBorder} strokeWidth="0.5"/>
-        </svg>
-      )}
-      {/* Loaded image */}
-      {state === "loaded" && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.6 }}
-          style={{
-            position: "absolute", inset: 0,
-            backgroundImage: `url(${src})`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-          }}
-          role="img"
-          aria-label={alt}
-        />
-      )}
-    </div>
-  );
-}
-
-// ─── Slide ────────────────────────────────────────────────────────────────────
-function Slide({ ev, isActive, isSaved, onSave, onExploreGame, reducedMotion }) {
-  const dur = reducedMotion ? 0.15 : 0.7;
-  const easeOut = [0.22, 1, 0.36, 1];
-
-  return (
-    <AnimatePresence mode="wait">
-      {isActive && (
-        <motion.div
-          key={ev.id}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1, transition: { duration: dur, ease: "easeOut" } }}
-          exit={{ opacity: 0, transition: { duration: reducedMotion ? 0.1 : 0.45, ease: "easeIn" } }}
-          style={{ position: "absolute", inset: 0, zIndex: 2 }}
-        >
-          {/* BG image — zoom only if motion allowed */}
-          <motion.div
-            initial={reducedMotion ? false : { scale: 1.06 }}
-            animate={{ scale: 1 }}
-            transition={{ duration: 8, ease: "linear" }}
-            style={{ position: "absolute", inset: 0 }}
-          >
-            <LazyImage src={ev.image} alt={ev.title} />
-          </motion.div>
-
-          {/* Layered gradient — bottom-heavy + left vignette */}
-          <div style={{
-            position: "absolute", inset: 0,
-            background: `
-              linear-gradient(90deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.45) 50%, rgba(0,0,0,0.05) 100%),
-              linear-gradient(0deg, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.2) 38%, rgba(0,0,0,0.55) 100%)
-            `,
-          }} />
-
-          {/* Fine gold diagonal line — decorative signature */}
-          <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 1 }} aria-hidden="true">
-            <line x1="0" y1="100%" x2="40%" y2="0" stroke={T.goldBorder} strokeWidth="0.6"/>
-          </svg>
-
-          {/* Content */}
-          <div style={{
-            position: "relative", zIndex: 3,
-            minHeight: "100%",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "center",
-            padding: "clamp(20px,5vw,72px)",
-            paddingTop: "clamp(70px,10vh,110px)",
-            paddingBottom: "clamp(130px,22vh,210px)",
-            maxWidth: "min(640px, 90vw)",
-          }}>
-
-            {/* Category pill */}
-            <motion.div
-              initial={{ opacity: 0, x: -16 }}
-              animate={{ opacity: 1, x: 0, transition: { duration: dur, ease: easeOut, delay: 0.05 } }}
-              style={{ marginBottom: "18px" }}
-            >
-              <span style={{
-                display: "inline-block",
-                padding: "4px 14px",
-                border: `1px solid ${T.goldBorder}`,
-                background: T.goldDim,
-                color: T.goldLight,
-                fontFamily: T.sans,
-                fontSize: "0.67rem",
-                fontWeight: 500,
-                letterSpacing: "0.14em",
-                textTransform: "uppercase",
-                borderRadius: "2px",
-              }}>
-                {ev.tag}
-              </span>
-            </motion.div>
-
-            {/* Title — full, wrapping */}
-            <div style={{ overflow: "hidden", marginBottom: "20px" }}>
-              <motion.h2
-                initial={reducedMotion ? { opacity: 0 } : { y: "105%", opacity: 0 }}
-                animate={{ y: 0, opacity: 1, transition: { duration: dur + 0.1, ease: easeOut, delay: 0.1 } }}
-                style={{
-                  margin: 0,
-                  fontFamily: T.serif,
-                  fontSize: "clamp(2.8rem, 8vw, 6.5rem)",
-                  fontWeight: 300,
-                  fontStyle: "italic",
-                  lineHeight: 0.95,
-                  color: T.white,
-                  letterSpacing: "-0.01em",
-                  whiteSpace: "normal",
-                  wordBreak: "break-word",
-                }}
-              >
-                {ev.title}
-              </motion.h2>
-            </div>
-
-            {/* Meta row */}
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0, transition: { duration: dur, ease: easeOut, delay: 0.2 } }}
-              style={{ display: "flex", flexWrap: "wrap", gap: "16px", marginBottom: "18px" }}
-            >
-              {ev.place && (
-                <span style={{ display: "flex", alignItems: "center", gap: 5, color: T.muted, fontFamily: T.sans, fontSize: "0.75rem", fontWeight: 400, letterSpacing: "0.07em", textTransform: "uppercase" }}>
-                  <PinIcon />{ev.place}
-                </span>
-              )}
-              {ev.date && (
-                <span style={{ display: "flex", alignItems: "center", gap: 5, color: T.muted, fontFamily: T.sans, fontSize: "0.75rem", fontWeight: 400, letterSpacing: "0.07em", textTransform: "uppercase" }}>
-                  <CalIcon />{ev.date}
-                </span>
-              )}
-              {ev.type === "game" && ev.price != null && (
-                <span style={{ color: T.muted, fontFamily: T.sans, fontSize: "0.75rem", fontWeight: 400, letterSpacing: "0.07em", textTransform: "uppercase" }}>
-                  ₹{ev.price} / hour
-                </span>
-              )}
-            </motion.div>
-
-            {/* Hairline divider */}
-            <motion.div
-              initial={{ scaleX: 0 }}
-              animate={{ scaleX: 1, transition: { duration: reducedMotion ? 0.1 : 0.55, ease: easeOut, delay: 0.26 } }}
-              style={{ height: "1px", background: T.goldBorder, originX: 0, marginBottom: "20px", maxWidth: "180px" }}
-            />
-
-            {/* Description */}
-            {ev.description && (
-              <motion.p
-                initial={{ opacity: 0, y: 14 }}
-                animate={{ opacity: 1, y: 0, transition: { duration: dur, ease: easeOut, delay: 0.32 } }}
-                style={{
-                  margin: "0 0 28px",
-                  fontFamily: T.sans,
-                  fontSize: "clamp(0.85rem, 1.2vw, 0.96rem)",
-                  fontWeight: 300,
-                  lineHeight: 1.8,
-                  color: T.muted,
-                  maxWidth: "430px",
-                }}
-              >
-                {ev.description}
-              </motion.p>
-            )}
-
-            {/* CTA row */}
-            <motion.div
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0, transition: { duration: dur, ease: easeOut, delay: 0.38 } }}
-              style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}
-            >
-              <motion.button
-                onClick={ev.type === "game" ? onExploreGame : undefined}
-                whileHover={reducedMotion ? {} : { scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-                style={{
-                  display: "inline-flex", alignItems: "center", gap: 8,
-                  padding: "11px 26px",
-                  border: `1px solid ${T.gold}`,
-                  background: "transparent",
-                  color: T.gold,
-                  fontFamily: T.sans,
-                  fontSize: "0.73rem",
-                  fontWeight: 500,
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase",
-                  cursor: "pointer",
-                  borderRadius: "2px",
-                  transition: "background 0.22s, color 0.22s",
-                }}
-                onMouseEnter={e => { e.currentTarget.style.background = T.gold; e.currentTarget.style.color = "#000"; }}
-                onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = T.gold; }}
-              >
-                <LinkIcon />
-                {ev.type === "game" ? "Explore Game" : "Reserve a Spot"}
-              </motion.button>
-
-              {ev.type !== "game" && (
-                <motion.button
-                  onClick={onSave}
-                  whileHover={reducedMotion ? {} : { scale: 1.08 }}
-                  whileTap={{ scale: 0.93 }}
-                  aria-label={isSaved ? "Remove from saved" : "Save event"}
-                  style={{
-                    width: "42px", height: "42px",
-                    borderRadius: "2px",
-                    border: `1px solid ${isSaved ? T.gold : "rgba(255,255,255,0.22)"}`,
-                    background: isSaved ? T.goldDim : "transparent",
-                    color: isSaved ? T.gold : T.muted,
-                    display: "grid", placeItems: "center",
-                    cursor: "pointer",
-                    transition: "all 0.22s ease",
-                  }}
-                >
-                  <SaveIcon saved={isSaved} />
-                </motion.button>
-              )}
-            </motion.div>
-          </div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-}
-
-// ─── Thumbnail ────────────────────────────────────────────────────────────────
-function Thumb({ ev, isActive, onClick, idx, reducedMotion }) {
-  return (
-    <motion.button
-      onClick={onClick}
-      initial={{ opacity: 0, y: 18 }}
-      animate={{ opacity: 1, y: 0, transition: { delay: idx * 0.06, duration: 0.4 } }}
-      whileHover={reducedMotion ? {} : { y: -5, scale: 1.04 }}
-      whileTap={{ scale: 0.96 }}
-      aria-label={`Go to: ${ev.title}`}
-      aria-current={isActive ? "true" : undefined}
-      style={{
-        position: "relative",
-        border: "none",
-        padding: 0,
-        borderRadius: "2px",
-        overflow: "hidden",
-        cursor: "pointer",
-        width: "clamp(78px,9vw,118px)",
-        height: "clamp(104px,13vw,158px)",
-        flexShrink: 0,
-        outline: isActive ? `1px solid ${T.gold}` : "1px solid rgba(255,255,255,0.1)",
-        outlineOffset: isActive ? "2px" : "0px",
-        transition: "outline 0.25s ease, outline-offset 0.25s ease",
+    <section
+      className={`bn ${s.kind}${paused || hover ? " paused" : ""}`}
+      aria-roledescription="carousel"
+      aria-label="Featured events and games"
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      onTouchStart={(e) => { touchX.current = e.touches[0].clientX; }}
+      onTouchEnd={(e) => {
+        if (touchX.current === null) return;
+        const dx = touchX.current - e.changedTouches[0].clientX;
+        if (Math.abs(dx) > 50) go(cur + (dx > 0 ? 1 : -1));
+        touchX.current = null;
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "ArrowLeft") go(cur - 1);
+        if (e.key === "ArrowRight") go(cur + 1);
       }}
     >
-      <LazyImage src={ev.image} alt="" />
-      <div style={{
-        position: "absolute", inset: 0,
-        background: isActive
-          ? "linear-gradient(0deg, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.1) 60%)"
-          : "linear-gradient(0deg, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.35) 60%)",
-        transition: "background 0.3s",
-      }} />
-      {isActive && (
-        <motion.div
-          layoutId="thumb-indicator"
-          style={{
-            position: "absolute", top: 0, left: 0, right: 0,
-            height: "2px",
-            background: `linear-gradient(90deg, ${T.gold}, ${T.goldLight})`,
-          }}
-        />
-      )}
-      <div style={{
-        position: "absolute", bottom: 0, left: 0, right: 0,
-        padding: "8px",
-        zIndex: 2,
-      }}>
-        <p style={{
-          margin: 0,
-          fontFamily: T.sans,
-          fontSize: "clamp(0.67rem, 1.1vw, 0.8rem)",
-          fontWeight: 400,
-          color: isActive ? T.offWhite : T.muted,
-          lineHeight: 1.25,
-          textAlign: "left",
-          transition: "color 0.25s",
-          // full title, wrap naturally
-          wordBreak: "break-word",
-          whiteSpace: "normal",
-        }}>
-          {ev.title}
-        </p>
-        {ev.date && (
-          <p style={{
-            margin: "4px 0 0",
-            fontFamily: T.sans,
-            fontSize: "0.62rem",
-            color: "rgba(255,255,255,0.38)",
-            lineHeight: 1,
-          }}>
-            {ev.date}
-          </p>
-        )}
+      <style>{css}</style>
+
+      <div className="bn-bg" key={`bg-${s.key}`} aria-hidden="true">
+        {img ? <img src={img} alt="" /> : <div className="ph"><Icon strokeWidth={1} /></div>}
       </div>
-    </motion.button>
-  );
-}
+      <div className="bn-shade" aria-hidden="true" />
 
-// ─── Ticker (scrolling marquee of event titles) ───────────────────────────────
-function Ticker({ events, reducedMotion }) {
-  const titles = events.map(e => e.title).join("  ·  ");
-  const doubled = `${titles}  ·  ${titles}`;
-  if (reducedMotion) return null;
-  return (
-    <div style={{
-      position: "absolute", bottom: 0, left: 0, right: 0,
-      height: "28px",
-      borderTop: `1px solid ${T.faint}`,
-      overflow: "hidden",
-      zIndex: 20,
-      display: "flex",
-      alignItems: "center",
-    }}>
-      <motion.div
-        animate={{ x: [0, "-50%"] }}
-        transition={{ duration: 30, ease: "linear", repeat: Infinity }}
-        style={{
-          display: "flex",
-          whiteSpace: "nowrap",
-          fontFamily: T.sans,
-          fontSize: "0.62rem",
-          fontWeight: 300,
-          color: "rgba(255,255,255,0.22)",
-          letterSpacing: "0.12em",
-          textTransform: "uppercase",
-          gap: "0px",
-        }}
-      >
-        {doubled}
-      </motion.div>
-    </div>
-  );
-}
-
-// ─── Empty / Error States ─────────────────────────────────────────────────────
-function EmptyState({ message }) {
-  return (
-    <div style={{
-      display: "grid", placeItems: "center",
-      minHeight: "70vh",
-      background: T.bg,
-      color: T.muted,
-      fontFamily: T.sans,
-      fontSize: "0.9rem",
-      letterSpacing: "0.06em",
-      gap: "12px",
-      flexDirection: "column",
-    }}>
-      <svg width="48" height="48" viewBox="0 0 48 48" fill="none" aria-hidden="true">
-        <rect x="8" y="8" width="32" height="32" rx="2" stroke={T.goldBorder} strokeWidth="1"/>
-        <line x1="8" y1="8" x2="40" y2="40" stroke={T.goldBorder} strokeWidth="0.8"/>
-      </svg>
-      <span>{message || "No events to display."}</span>
-    </div>
-  );
-}
-
-// ─── Progress dots ────────────────────────────────────────────────────────────
-function Dots({ count, active, onSelect }) {
-  return (
-    <div style={{ display: "flex", gap: "6px", alignItems: "center" }} role="tablist" aria-label="Event navigation">
-      {Array.from({ length: count }).map((_, i) => (
-        <motion.button
-          key={i}
-          onClick={() => onSelect(i)}
-          role="tab"
-          aria-selected={i === active}
-          aria-label={`Event ${i + 1}`}
-          whileHover={{ scale: 1.3 }}
-          whileTap={{ scale: 0.9 }}
-          style={{
-            width: i === active ? "22px" : "6px",
-            height: "6px",
-            borderRadius: "99px",
-            background: i === active ? T.gold : "rgba(255,255,255,0.25)",
-            border: "none",
-            padding: 0,
-            cursor: "pointer",
-            transition: "width 0.35s ease, background 0.3s ease",
-          }}
-        />
-      ))}
-    </div>
-  );
-}
-
-// ─── Main Component ───────────────────────────────────────────────────────────
-export default function ExclusiveEventsCarousel({ events, games, autoPlayMs = 6000 }) {
-  const reducedMotion = useReducedMotion();
-  const navigate = useNavigate();
-  const timerRef = useRef(null);
-
-  const eventList = (Array.isArray(events) ? events : []).map(normalizeEvent);
-  const gameList = (Array.isArray(games) ? games : [])
-    .filter(game => game && !game.maintenance_mode && game.id != null)
-    .map(normalizeGame);
-  const list = [...eventList, ...gameList];
-
-  const [active, setActive]     = useState(0);
-  const [saved, setSaved]       = useState({});
-  const [paused, setPaused]     = useState(false);
-  const [thumbsVisible, setThumbsVisible] = useState(true);
-
-  const safeActive = Math.min(active, Math.max(list.length - 1, 0));
-  const go = useCallback((idx) => setActive(((idx % list.length) + list.length) % list.length), [list.length]);
-
-  // Auto-play
-  useEffect(() => {
-    if (list.length < 2 || paused) return;
-    timerRef.current = setInterval(() => go(safeActive + 1), autoPlayMs);
-    return () => clearInterval(timerRef.current);
-  }, [list.length, paused, safeActive, autoPlayMs, go]);
-
-  const resetAndGo = (idx) => {
-    clearInterval(timerRef.current);
-    go(idx);
-  };
-
-  // Keyboard nav
-  useEffect(() => {
-    const handler = (e) => {
-      if (e.key === "ArrowLeft")  resetAndGo(safeActive - 1);
-      if (e.key === "ArrowRight") resetAndGo(safeActive + 1);
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [safeActive]);
-
-  // Swipe
-  const touchStart = useRef(null);
-  const handleTouchStart = (e) => { touchStart.current = e.touches[0].clientX; };
-  const handleTouchEnd = (e) => {
-    if (touchStart.current === null) return;
-    const diff = touchStart.current - e.changedTouches[0].clientX;
-    if (Math.abs(diff) > 50) { resetAndGo(safeActive + (diff > 0 ? 1 : -1)); }
-    touchStart.current = null;
-  };
-
-  if (!list.length) return <EmptyState message="No featured events or games right now." />;
-
-  return (
-    <>
-      <style>{`
-        @import url('${FONT_LINK}');
-        *,*::before,*::after{box-sizing:border-box;}
-        @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
-      `}</style>
-
-      <section
-        aria-label="Featured events and games carousel"
-        onMouseEnter={() => setPaused(true)}
-        onMouseLeave={() => setPaused(false)}
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-        style={{
-          position: "relative",
-          width: "100%",
-          minHeight: "100svh",
-          background: T.bg,
-          overflow: "hidden",
-          isolation: "isolate",
-          userSelect: "none",
-        }}
-      >
-        {/* ── Slides ── */}
-        {list.map((ev, i) => (
-          <Slide
-            key={ev.id}
-            ev={ev}
-            isActive={i === safeActive}
-            isSaved={!!saved[ev.id]}
-            onSave={() => setSaved(s => ({ ...s, [ev.id]: !s[ev.id] }))}
-            onExploreGame={() => navigate(`/user/games/${ev.gameId}`)}
-            reducedMotion={reducedMotion}
-          />
-        ))}
-
-        {/* ── Corner index ── */}
-        <div style={{
-          position: "absolute",
-          top: "clamp(18px,3vw,36px)",
-          right: "clamp(18px,3vw,36px)",
-          zIndex: 10,
-          textAlign: "right",
-        }}>
-          <motion.span
-            key={safeActive}
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            style={{
-              display: "block",
-              fontFamily: T.sans,
-              fontSize: "clamp(1.6rem,4vw,2.6rem)",
-              fontWeight: 300,
-              color: T.gold,
-              lineHeight: 1,
-            }}
-          >
-            {String(safeActive + 1).padStart(2, "0")}
-          </motion.span>
-          <span style={{
-            display: "block",
-            fontFamily: T.sans,
-            fontSize: "0.68rem",
-            color: T.muted,
-            letterSpacing: "0.12em",
-            marginTop: "2px",
-          }}>
-            / {String(list.length).padStart(2, "0")}
-          </span>
+      <div className="bn-in">
+        <div className="bn-copy" key={s.key} aria-live="polite">
+          <span className="bn-kicker"><Icon size={14} aria-hidden="true" /><span>{s.label}</span></span>
+          <h2 className="bn-title" title={s.title}>{s.title}</h2>
+          <div className="bn-meta">
+            {s.date && <span><CalendarDays size={15} aria-hidden="true" />{niceDate(s.date)}</span>}
+            {s.start && <span><Clock size={15} aria-hidden="true" />{niceTime(s.start)}</span>}
+            {s.price && <span><IndianRupee size={15} aria-hidden="true" />{s.price.slice(1)} {s.priceUnit}</span>}
+            {s.seats != null && <span><Users size={15} aria-hidden="true" />{s.seats} seats left</span>}
+            {s.id && <span><Ticket size={15} aria-hidden="true" />{s.id}</span>}
+          </div>
+          {s.text ? <p className="bn-desc">{s.text}</p> : <div />}
+          <div className="bn-actions">
+            <Link className="bn-btn" to={s.cta.to}>{s.cta.label} <ArrowRight size={16} aria-hidden="true" /></Link>
+            <Link className="bn-btn ghost" to={s.more.to}>{s.more.label}</Link>
+          </div>
         </div>
 
-        {/* ── Bottom control area ── */}
-        {list.length > 1 && (
-          <div style={{
-            position: "absolute",
-            bottom: "28px",
-            left: 0,
-            right: 0,
-            zIndex: 10,
-            padding: "0 clamp(18px,4vw,60px)",
-          }}>
-            {/* Thumbnail strip */}
-            {thumbsVisible && (
-              <div style={{
-                display: "flex",
-                gap: "10px",
-                justifyContent: "flex-end",
-                marginBottom: "20px",
-                overflowX: "auto",
-                overflowY: "visible",
-                scrollbarWidth: "none",
-                paddingBottom: "4px",
-                paddingRight: "2px",
-              }}>
-                {list.map((ev, i) => (
-                  <Thumb
-                    key={ev.id}
-                    ev={ev}
-                    isActive={i === safeActive}
-                    onClick={() => resetAndGo(i)}
-                    idx={i}
-                    reducedMotion={reducedMotion}
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* Controls row */}
-            <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-              {/* Prev / Next */}
-              {[
-                { dir: -1, label: "Previous event", Icon: ChevronLeft },
-                { dir:  1, label: "Next event",     Icon: ChevronRight },
-              ].map(({ dir, label, Icon }) => (
-                <motion.button
-                  key={label}
-                  onClick={() => resetAndGo(safeActive + dir)}
-                  aria-label={label}
-                  whileHover={reducedMotion ? {} : { scale: 1.08 }}
-                  whileTap={{ scale: 0.93 }}
-                  style={{
-                    width: "40px", height: "40px",
-                    borderRadius: "2px",
-                    border: "1px solid rgba(255,255,255,0.2)",
-                    background: "rgba(255,255,255,0.04)",
-                    color: T.muted,
-                    display: "grid", placeItems: "center",
-                    cursor: "pointer",
-                    flexShrink: 0,
-                    backdropFilter: "blur(4px)",
-                    transition: "border-color 0.2s, color 0.2s",
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = T.goldBorder; e.currentTarget.style.color = T.gold; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.2)"; e.currentTarget.style.color = T.muted; }}
-                >
-                  <Icon />
-                </motion.button>
+        {n > 1 && (
+          <div className="bn-bar">
+            <button type="button" className="bn-arrow" onClick={() => go(cur - 1)} aria-label="Previous slide">
+              <ChevronLeft size={20} aria-hidden="true" />
+            </button>
+            <button type="button" className="bn-arrow" onClick={() => go(cur + 1)} aria-label="Next slide">
+              <ChevronRight size={20} aria-hidden="true" />
+            </button>
+            <div className="bn-dots" role="tablist" aria-label="Slides">
+              {slides.map((sl, i) => (
+                <button key={`${sl.key}-${i === cur ? cur : "x"}`} type="button" role="tab" aria-selected={i === cur}
+                  aria-label={`Slide ${i + 1}: ${sl.title}`} className={`bn-dot${i === cur ? " on" : ""}`}
+                  style={{ "--dur": `${autoPlayMs}ms` }} onClick={() => go(i)} />
               ))}
-
-              {/* Dots */}
-              <Dots count={list.length} active={safeActive} onSelect={resetAndGo} />
-
-              {/* Spacer */}
-              <div style={{ flex: 1 }} />
-
-              {/* Toggle thumbnails */}
-              <button
-                onClick={() => setThumbsVisible(v => !v)}
-                aria-label={thumbsVisible ? "Hide thumbnails" : "Show thumbnails"}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  color: thumbsVisible ? T.gold : T.muted,
-                  fontFamily: T.sans,
-                  fontSize: "0.65rem",
-                  fontWeight: 500,
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase",
-                  cursor: "pointer",
-                  padding: "6px 0",
-                  transition: "color 0.2s",
-                }}
-              >
-                {thumbsVisible ? "Hide" : "Gallery"}
-              </button>
             </div>
+            <button type="button" className="bn-arrow" onClick={() => setPaused((p) => !p)} aria-label={paused ? "Play slideshow" : "Pause slideshow"}
+              style={{ marginLeft: 4 }}>
+              {paused ? <Play size={16} aria-hidden="true" /> : <Pause size={16} aria-hidden="true" />}
+            </button>
+            <span className="bn-count"><b>{String(cur + 1).padStart(2, "0")}</b> / {String(n).padStart(2, "0")}</span>
           </div>
         )}
+      </div>
 
-        {/* ── Scrolling ticker at very bottom ── */}
-        {!reducedMotion && <Ticker events={list} reducedMotion={reducedMotion} />}
-
-        {/* ── Top vignette ── */}
-        <div style={{
-          position: "absolute", top: 0, left: 0, right: 0,
-          height: "90px",
-          background: "linear-gradient(180deg, rgba(0,0,0,0.45) 0%, transparent 100%)",
-          zIndex: 5,
-          pointerEvents: "none",
-        }} />
-      </section>
-    </>
+      {n > 1 && (
+        <div className="bn-thumbs">
+          {slides.map((sl, i) => <Thumb key={sl.key} slide={sl} on={i === cur} onClick={() => go(i)} />)}
+        </div>
+      )}
+    </section>
   );
 }
+
+export default ExclusiveEventsCarousel;

@@ -370,6 +370,14 @@ function formatDate(iso) {
   });
 }
 
+function formatWhen(value) {
+  if (!value) return "—";
+  const d = new Date(value);
+  return Number.isNaN(d.getTime())
+    ? String(value)
+    : d.toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+}
+
 export default function UserDetail({ userId, onClose }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -477,22 +485,36 @@ export default function UserDetail({ userId, onClose }) {
                     <thead>
                       <tr>
                         <th>Device</th>
-                        <th>Type</th>
-                        <th>Browser</th>
-                        <th>OS</th>
-                        <th>IP</th>
+                        <th>Browser / OS</th>
+                        <th>IP (latest / first)</th>
+                        <th>Screen · Locale</th>
                         <th>Online</th>
-                        <th>Last Seen</th>
+                        <th>Last seen</th>
                       </tr>
                     </thead>
                     <tbody>
                       {user.devices.map((device) => (
                         <tr key={device.id}>
-                          <td>{device.device_name}</td>
-                          <td>{device.device_type}</td>
-                          <td>{device.browser}</td>
-                          <td>{device.operating_system}</td>
-                          <td>{device.ip_address}</td>
+                          <td>
+                            {device.device_name}
+                            <div style={{ opacity: 0.6, fontSize: "0.75em" }}>{device.device_type}</div>
+                          </td>
+                          <td>
+                            {device.browser}
+                            <div style={{ opacity: 0.6, fontSize: "0.75em" }}>{device.operating_system}</div>
+                          </td>
+                          <td>
+                            {device.ip_address || "—"}
+                            {device.first_ip_address && device.first_ip_address !== device.ip_address && (
+                              <div style={{ opacity: 0.6, fontSize: "0.75em" }}>first: {device.first_ip_address}</div>
+                            )}
+                          </td>
+                          <td>
+                            {device.screen_resolution || "—"}
+                            <div style={{ opacity: 0.6, fontSize: "0.75em" }}>
+                              {[device.time_zone, device.language].filter(Boolean).join(" · ") || "—"}
+                            </div>
+                          </td>
                           <td>
                             {device.is_online ? (
                               <span className="adm-badge ok">Online</span>
@@ -500,7 +522,7 @@ export default function UserDetail({ userId, onClose }) {
                               <span className="adm-badge off">Offline</span>
                             )}
                           </td>
-                          <td>{device.last_seen}</td>
+                          <td>{formatWhen(device.last_seen)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -508,6 +530,46 @@ export default function UserDetail({ userId, onClose }) {
                 </div>
               ) : (
                 <div className="adm-empty">No devices linked yet</div>
+              )}
+            </div>
+
+            <div>
+              <span className="adm-modal-section-label">Recent sign-in activity</span>
+
+              {user.recent_logins && user.recent_logins.length > 0 ? (
+                <div className="adm-table-wrap">
+                  <table className="adm-table">
+                    <thead>
+                      <tr>
+                        <th>When</th>
+                        <th>Event</th>
+                        <th>IP</th>
+                        <th>Device</th>
+                        <th>Browser / OS</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {user.recent_logins.map((entry) => (
+                        <tr key={entry.id}>
+                          <td>{formatWhen(entry.created_at)}</td>
+                          <td>
+                            <span className={`adm-badge ${entry.event === "login_failed" || entry.event === "login_locked" ? "danger" : "ok"}`}>
+                              {entry.event_label}
+                            </span>
+                          </td>
+                          <td>{entry.ip_address || "—"}</td>
+                          <td>{entry.device_name || "—"}</td>
+                          <td>
+                            {entry.browser || "—"}
+                            <div style={{ opacity: 0.6, fontSize: "0.75em" }}>{entry.operating_system}</div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="adm-empty">No sign-in activity recorded yet</div>
               )}
             </div>
 

@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import AdminLayout from "./AdminLayout";
 import { adminCss } from "./adminTheme";
 
+import { Check, TriangleAlert, X } from "lucide-react";
 const IMG_CSS = `
   .adm-img-drop {
     border: 1px dashed rgba(0,255,225,0.25);
@@ -74,7 +75,7 @@ function ImageDropField({ file, onChange }) {
             onClick={() => onChange(null)}
             title="Remove image"
           >
-            ✕
+            <X size={16} aria-hidden="true" />
           </button>
         </div>
       ) : (
@@ -95,6 +96,7 @@ export default function AddComboPack() {
     snack_price:   "",
     combo_price:   "",
     loyalty_bonus: "",
+    max_people: "4",
     gaming_items:  [],
   });
   const [image, setImage] = useState(null);
@@ -135,6 +137,7 @@ export default function AddComboPack() {
       if (form.snack_price !== "") formData.append("snack_price", Number(form.snack_price));
       formData.append("combo_price", Number(form.combo_price));
       if (form.loyalty_bonus !== "") formData.append("loyalty_bonus", Number(form.loyalty_bonus));
+      if (form.max_people !== "") formData.append("max_people", Math.max(1, Number(form.max_people)));
       form.gaming_items.forEach((id) => formData.append("gaming_items", id));
       if (image) formData.append("image", image);
 
@@ -165,7 +168,7 @@ export default function AddComboPack() {
             </button>
           </section>
 
-          {error && <div className="adm-alert">⚠ {error}</div>}
+          {error && <div className="adm-alert"><TriangleAlert className="ico" size="1.05em" aria-hidden="true" /> {error}</div>}
 
           <article className="adm-panel">
             <div className="adm-panel-head">
@@ -254,6 +257,22 @@ export default function AddComboPack() {
                     />
                   </div>
 
+                  {/* Max people */}
+                  <div className="adm-field">
+                    <label className="adm-label" htmlFor="pack-people">Max People</label>
+                    <input
+                      id="pack-people"
+                      className="adm-input"
+                      type="number"
+                      name="max_people"
+                      min="1"
+                      max="50"
+                      step="1"
+                      value={form.max_people}
+                      onChange={change}
+                    />
+                  </div>
+
                   {/* Gaming items — full width toggle chips */}
                   {games.length > 0 && (
                     <div className="adm-field adm-form-full">
@@ -279,7 +298,7 @@ export default function AddComboPack() {
                                 transition: "all 0.15s",
                               }}
                             >
-                              {selected ? "✓ " : ""}{g.name}
+                              {selected && <Check className="ico" size="1em" aria-hidden="true" />} {g.name}
                             </button>
                           );
                         })}

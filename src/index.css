@@ -1,0 +1,84 @@
+/* ─────────────────────────────────────────────────────────────
+   DQD Gaming — app-wide basics shared by every page.
+   Page and component styles build on these tokens.
+   ───────────────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --dqd-bg: #05040a;
+  --dqd-surface: #0d0c1d;
+  --dqd-surface-2: #12112a;
+  --dqd-line: rgba(255, 255, 255, 0.08);
+  --dqd-text: #e6e3f5;
+  --dqd-muted: #9b95bb;
+  --dqd-cyan: #00f5ff;
+  --dqd-pink: #ff2d78;
+  --dqd-gold: #ffd60a;
+  --dqd-purple: #7b2fff;
+  --dqd-green: #39ff14;
+  --dqd-radius: 18px;
+  --dqd-radius-sm: 12px;
+  --dqd-font-display: 'Orbitron', sans-serif;
+  --dqd-font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --dqd-font-mono: 'Share Tech Mono', ui-monospace, monospace;
+  --dqd-dock-space: calc(96px + env(safe-area-inset-bottom));
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--dqd-bg);
+  color: var(--dqd-text);
+  font-family: var(--dqd-font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+img, svg, video { max-width: 100%; }
+
+a, button, [role='button'], input, select, textarea { -webkit-tap-highlight-color: transparent; }
+
+button, input, select, textarea { font: inherit; }
+
+:focus-visible {
+  outline: 2px solid var(--dqd-cyan);
+  outline-offset: 2px;
+}
+
+::selection { background: rgba(123, 47, 255, 0.45); color: #fff; }
+
+/* Thin themed scrollbars */
+* { scrollbar-width: thin; scrollbar-color: rgba(0, 245, 255, 0.35) transparent; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: linear-gradient(180deg, var(--dqd-cyan), var(--dqd-purple)); border-radius: 999px; border: 2px solid var(--dqd-bg); }
+
+/* Inline icons (lucide) that sit inside a line of text */
+.ico {
+  display: inline-block;
+  flex: none;
+  vertical-align: -0.16em;
+  margin-right: 0.35em;
+}
+
+/* "icon + text" rows */
+.u-ico-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  vertical-align: middle;
+}
+.u-ico-row .ico { margin-right: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}

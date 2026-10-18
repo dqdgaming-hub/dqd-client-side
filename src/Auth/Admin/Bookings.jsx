@@ -1,340 +1,218 @@
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { adminApi } from "../api/adminapi";
 import AdminLayout from "./AdminLayout";
-import { bookingCss, StatusBadge, TypeChip, HappyHourCell, SkeletonRows, EmptyState } from "./bookingTheme.jsx";
+import { showWhatsApp } from "../../utils/whatsapp";
+import { saCss, errorText, money, time12, dateNice } from "./simpleAdminUi";
+import useApi from "../../hooks/useApi";
 
-const PAGE_SIZE = 15;
+const PAGE_SIZE = 20;
 
-// ── tab definitions ──────────────────────────────────────
-const TABS = [
-  { key: "all",   label: "All Bookings",   color: "cyan"   },
-  { key: "game",  label: "Game Items",     color: "cyan"   },
-  { key: "combo", label: "Combo Packs",    color: "yellow" },
+const STATUS_TABS = [
+  { key: "", label: "All" },
+  { key: "pending", label: "Pending" },
+  { key: "confirmed", label: "Confirmed" },
+  { key: "completed", label: "Completed" },
+  { key: "cancelled", label: "Cancelled" },
 ];
-
-function deriveStats(bookings) {
-  return {
-    total:     bookings.length,
-    pending:   bookings.filter((b) => b.status === "pending").length,
-    confirmed: bookings.filter((b) => b.status === "confirmed").length,
-    revenue:   bookings
-      .filter((b) => b.payment_status === "paid")
-      .reduce((s, b) => s + parseFloat(b.price_paid || 0), 0),
-  };
-}
 
 export default function Bookings() {
   const navigate = useNavigate();
-  const location = useLocation();
 
-  // derive initial tab from URL hash if present
-  const initTab = location.hash === "#combo" ? "combo" : location.hash === "#game" ? "game" : "all";
+  const [status, setStatus] = useState("pending");
+  const [type, setType] = useState("");
+  const [date, setDate] = useState("");
+  const [search, setSearch] = useState("");
+  const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
 
-  const [tab,       setTab]       = useState(initTab);
-  const [allData,   setAllData]   = useState([]);
-  const [gameData,  setGameData]  = useState([]);
-  const [comboData, setComboData] = useState([]);
-  const [loading,   setLoading]   = useState(true);
-  const [search,    setSearch]    = useState("");
-  const [statusFilter, setStatus] = useState("");
-  const [payFilter,    setPay]    = useState("");
-  const [page,      setPage]      = useState(1);
+  const [busyId, setBusyId] = useState(null);
 
-  useEffect(() => { loadAll(); }, []);
+  useEffect(() => {
+    const id = setTimeout(() => {
+      setQuery(search.trim());
+      setPage(1);
+    }, 350);
+    return () => clearTimeout(id);
+  }, [search]);
 
-  async function loadAll() {
-    setLoading(true);
-    try {
-      const [all, game, combo] = await Promise.all([
-  adminApi.getgameBookings().catch(() => []),   // /auth/admin/game-bookings/
-  adminApi.getGameBookings().catch(() => []),   // /auth/admin/bookings/game-items/
-  adminApi.getComboBookings().catch(() => []),  // /auth/admin/bookings/combo-packs/
-]);
-      setAllData(all  || []);
-      setGameData(game  || []);
-      setComboData(combo || []);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }
+  const params = { status, type, date, search: query, page, page_size: PAGE_SIZE };
+  const { data, error: loadError, loading, reload: load } = useApi(
+    () => adminApi.getBookings(params),
+    JSON.stringify(params),
+  );
+  const rows = Array.isArray(data) ? data : data?.results || [];
+  const count = Array.isArray(data) ? data.length : data?.count || 0;
+  const error = loadError ? errorText(loadError, "Could not load bookings.") : "";
 
-  async function handleApprove(id, e) {
-    e.stopPropagation();
-    try {
-      await adminApi.approveBooking(id);
-      loadAll();
-    } catch (err) { alert(err.message); }
-  }
-
-  async function handleReject(id, e) {
-    e.stopPropagation();
-    if (!confirm("Reject this booking?")) return;
-    try {
-      await adminApi.rejectBooking(id);
-      loadAll();
-    } catch (err) { alert(err.message); }
-  }
-
-  const rawBookings = tab === "game" ? gameData : tab === "combo" ? comboData : allData;
-
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    return rawBookings.filter((b) => {
-      const matchSearch = !q ||
-        (b.booking_id  || "").toLowerCase().includes(q) ||
-        (b.customer_name || "").toLowerCase().includes(q) ||
-        (b.item_name   || "").toLowerCase().includes(q) ||
-        (b.combo_name  || "").toLowerCase().includes(q);
-      const matchStatus = !statusFilter || b.status === statusFilter;
-      const matchPay    = !payFilter    || b.payment_status === payFilter;
-      return matchSearch && matchStatus && matchPay;
-    });
-  }, [rawBookings, search, statusFilter, payFilter]);
-
-  const stats     = useMemo(() => deriveStats(allData), [allData]);
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const paged     = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
-  function switchTab(key) {
-    setTab(key);
+  const changeFilter = (setter) => (value) => {
+    setter(value);
     setPage(1);
-    setSearch("");
-    setStatus("");
-    setPay("");
-  }
+  };
 
-  const currency = (v) => v != null ? `INR ${parseFloat(v).toFixed(2)}` : "—";
+  const approve = async (b) => {
+    setBusyId(b.id);
+    try {
+      const result = await adminApi.approveBooking(b.id);
+      showWhatsApp(result?.whatsapp_url, `Send confirmation to ${b.customer_name || "customer"}`);
+      load();
+    } catch (err) {
+      alert(errorText(err, "Could not approve the booking."));
+    } finally {
+      setBusyId(null);
+    }
+  };
 
-  const colCount = tab === "combo" ? 9 : 10;
+  const cancel = async (b) => {
+    const reason = window.prompt(`Cancel booking ${b.booking_id}? Optional reason:`, "");
+    if (reason === null) return;
+    setBusyId(b.id);
+    try {
+      await adminApi.rejectBooking(b.id, reason);
+      load();
+    } catch (err) {
+      alert(errorText(err, "Could not cancel the booking."));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE));
 
   return (
-    <>
-      <style>{bookingCss}</style>
-      <div className="bk-pg">
-        <AdminLayout>
-
-          {/* ── Hero ── */}
-          <section className="bk-hero">
-            <div>
-              <p className="bk-kicker">DQD Gaming · Operations</p>
-              <h1 className="bk-h1">Booking <span>Management</span></h1>
-              <p className="bk-hero-sub">Manage all game-item, combo-pack, and walk-in bookings</p>
-            </div>
-            <div className="bk-hero-actions">
-              <button
-                className="bk-btn-ghost"
-                onClick={() => navigate("/admin/bookings/verify")}
-              >
-                ⬡ Scan QR
-              </button>
-              <button
-                className="bk-btn-primary"
-                onClick={() => navigate("/admin/bookings/add")}
-              >
-                + New Booking
-              </button>
-            </div>
-          </section>
-
-          {/* ── Stats ── */}
-          <div className="bk-stats">
-            <div className="bk-stat cyan">
-              <div className="bk-stat-val">{loading ? "—" : stats.total}</div>
-              <div className="bk-stat-label">Total Bookings</div>
-            </div>
-            <div className="bk-stat yellow">
-              <div className="bk-stat-val">{loading ? "—" : stats.pending}</div>
-              <div className="bk-stat-label">Awaiting Approval</div>
-            </div>
-            <div className="bk-stat" style={{ "--color": "var(--bk-cyan)" }}>
-              <div className="bk-stat-val" style={{ color: "#00ff64" }}>{loading ? "—" : stats.confirmed}</div>
-              <div className="bk-stat-label">Confirmed</div>
-            </div>
-            <div className="bk-stat pink">
-              <div className="bk-stat-val">
-                {loading ? "—" : `INR ${stats.revenue.toFixed(0)}`}
-              </div>
-              <div className="bk-stat-label">Revenue (Paid)</div>
-            </div>
+    <AdminLayout>
+      <style>{saCss}</style>
+      <div className="sa">
+        <div className="sa-head">
+          <div>
+            <h2 className="sa-title">Bookings</h2>
+            <p className="sa-sub">Games and combo packs · {count} result{count === 1 ? "" : "s"}</p>
           </div>
-
-          {/* ── Segment tabs ── */}
-          <div className="bk-seg">
-            {TABS.map((t) => (
-              <button
-                key={t.key}
-                className={`bk-seg-btn ${t.color} ${tab === t.key ? "active" : ""}`}
-                onClick={() => switchTab(t.key)}
-              >
-                {t.label}
-                <span className="bk-seg-count">
-                  {t.key === "all"   ? allData.length
-                  : t.key === "game"  ? gameData.length
-                  : comboData.length}
-                </span>
-              </button>
-            ))}
+          <div className="sa-actions">
+            <Link className="sa-btn" to="/admin/bookings/verify">Scan QR</Link>
+            <Link className="sa-btn primary" to="/admin/bookings/add">+ New booking</Link>
           </div>
+        </div>
 
-          {/* ── Toolbar ── */}
-          <div className="bk-toolbar">
-            <div className="bk-search-wrap">
-              <svg viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" /></svg>
-              <input
-                className="bk-search"
-                placeholder="Search ID, customer, item…"
-                value={search}
-                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              />
-            </div>
-            <select
-              className="bk-filter-select"
-              value={statusFilter}
-              onChange={(e) => { setStatus(e.target.value); setPage(1); }}
+        <div className="sa-tabs" role="tablist">
+          {STATUS_TABS.map((t) => (
+            <button
+              key={t.key || "all"}
+              role="tab"
+              aria-selected={status === t.key}
+              className={`sa-tab ${status === t.key ? "on" : ""}`}
+              onClick={() => changeFilter(setStatus)(t.key)}
             >
-              <option value="">All Statuses</option>
-              <option value="pending">Pending</option>
-              <option value="confirmed">Confirmed</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-            <select
-              className="bk-filter-select"
-              value={payFilter}
-              onChange={(e) => { setPay(e.target.value); setPage(1); }}
-            >
-              <option value="">All Payments</option>
-              <option value="pending">Pending</option>
-              <option value="paid">Paid</option>
-              <option value="refunded">Refunded</option>
-            </select>
-          </div>
+              {t.label}
+            </button>
+          ))}
+        </div>
 
-          {/* ── Table ── */}
-          <div className="bk-table-wrap">
-            <table className="bk-table">
+        <div className="sa-toolbar">
+          <input
+            className="sa-input grow"
+            type="search"
+            placeholder="Search booking ID, name, mobile, game"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            maxLength={100}
+          />
+          <select className="sa-select" value={type} onChange={(e) => changeFilter(setType)(e.target.value)}>
+            <option value="">All types</option>
+            <option value="game">Games</option>
+            <option value="combo">Combo packs</option>
+          </select>
+          <input
+            className="sa-input"
+            type="date"
+            value={date}
+            onChange={(e) => changeFilter(setDate)(e.target.value)}
+            style={{ colorScheme: "dark" }}
+            aria-label="Booking date"
+          />
+          {date && <button className="sa-btn" onClick={() => changeFilter(setDate)("")}>Any date</button>}
+        </div>
+
+        {error && <div className="sa-error">{error} <button className="sa-btn" onClick={load}>Retry</button></div>}
+
+        <div className="sa-panel">
+          <div className="sa-table-wrap">
+            <table className="sa-table">
               <thead>
                 <tr>
-                  <th>Booking ID</th>
                   <th>Customer</th>
-                  {tab === "all" && <th>Type</th>}
-                  <th>{tab === "combo" ? "Combo Pack" : "Game Item"}</th>
-                  <th>Date</th>
-                  {tab !== "combo" && <th>Time Slot</th>}
+                  <th>Booking</th>
+                  <th>When</th>
+                  <th className="sa-hide-sm">Amount</th>
                   <th>Status</th>
-                  <th>Payment</th>
-                  <th>Happy Hr</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {loading ? (
-                  <SkeletonRows count={6} cols={colCount} />
-                ) : paged.length === 0 ? (
-                  <EmptyState
-                    icon="📋"
-                    msg={search ? "No bookings match your search" : "No bookings yet"}
-                  />
-                ) : paged.map((b) => (
-                  <tr
-                    key={b.id}
-                    onClick={() => navigate(`/admin/bookings/${b.id}`)}
-                  >
-                    <td><span className="bk-id">{b.booking_id}</span></td>
-                    <td>
-                      <div style={{ fontWeight: 500 }}>{b.customer_name}</div>
-                      {b.customer_email && (
-                        <div style={{ fontSize: "0.65rem", color: "var(--bk-muted)" }}>{b.customer_email}</div>
-                      )}
-                    </td>
-                    {tab === "all" && (
-                      <td><TypeChip type={b.booking_type} /></td>
-                    )}
-                    <td>{b.combo_name || b.item_name || "—"}</td>
-                    <td style={{ fontFamily: "var(--bk-font-mono)", fontSize: "0.68rem" }}>
-                      {b.booking_date || "—"}
-                    </td>
-                    {tab !== "combo" && (
-                      <td style={{ fontFamily: "var(--bk-font-mono)", fontSize: "0.65rem", color: "var(--bk-muted)" }}>
-                        {b.start_time && b.end_time ? `${b.start_time} – ${b.end_time}` : "—"}
+                {loading && rows.length === 0 ? (
+                  <tr><td colSpan={6} className="sa-loading">Loading bookings…</td></tr>
+                ) : rows.length === 0 ? (
+                  <tr><td colSpan={6} className="sa-empty">No bookings found.</td></tr>
+                ) : (
+                  rows.map((b) => (
+                    <tr key={b.id} onClick={() => navigate(`/admin/bookings/${b.id}`)} style={{ cursor: "pointer" }}>
+                      <td>
+                        <div className="sa-strong">{b.customer_name || "Guest"}</div>
+                        <div className="sa-muted">{b.customer_phone || b.customer_email || "—"}</div>
                       </td>
-                    )}
-                    <td><StatusBadge status={b.status} /></td>
-                    <td><StatusBadge status={b.payment_status} /></td>
-                    <td><HappyHourCell val={b.is_happy_hour} /></td>
-                    <td onClick={(e) => e.stopPropagation()}>
-                      <div className="bk-row-actions">
-                        <button
-                          className="bk-btn-primary bk-btn-sm"
-                          onClick={() => navigate(`/admin/bookings/${b.id}`)}
-                        >
-                          View
-                        </button>
-                        {b.status === "pending" && (
-                          <>
-                            <button
-                              className="bk-btn-success bk-btn-sm"
-                              onClick={(e) => handleApprove(b.id, e)}
-                            >
-                              ✓
+                      <td>
+                        <div>{b.combo_name || b.item_name || "—"}</div>
+                        <div className="sa-muted">
+                          {b.booking_id} · {b.booking_type === "combo" ? "Combo" : "Game"}
+                          {b.is_happy_hour ? " · Happy hour" : ""}
+                        </div>
+                      </td>
+                      <td>
+                        <div>{dateNice(b.booking_date)}</div>
+                        <div className="sa-muted">{time12(b.start_time)} – {time12(b.end_time)}</div>
+                      </td>
+                      <td className="sa-hide-sm">
+                        <div>{money(b.total_amount)}</div>
+                        <span className={`sa-badge ${b.payment_status}`}>{b.payment_status}</span>
+                      </td>
+                      <td>
+                        <span className={`sa-badge ${b.status}`}>{b.status}</span>
+                        {b.checked_in && <div className="sa-muted">Checked in</div>}
+                      </td>
+                      <td onClick={(e) => e.stopPropagation()}>
+                        <div className="sa-actions">
+                          {b.status === "pending" && (
+                            <button className="sa-btn ok" disabled={busyId === b.id} onClick={() => approve(b)}>
+                              Approve
                             </button>
-                            <button
-                              className="bk-btn-danger bk-btn-sm"
-                              onClick={(e) => handleReject(b.id, e)}
-                            >
-                              ✕
+                          )}
+                          {(b.status === "pending" || b.status === "confirmed") && (
+                            <button className="sa-btn danger" disabled={busyId === b.id} onClick={() => cancel(b)}>
+                              Cancel
                             </button>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          )}
+                          {b.whatsapp_url && (
+                            <a className="sa-btn wa" href={b.whatsapp_url} target="_blank" rel="noopener noreferrer">
+                              Resend on WhatsApp
+                            </a>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
-
-            {/* Pagination */}
-            {!loading && filtered.length > PAGE_SIZE && (
-              <div className="bk-pagination">
-                <span>
-                  Showing {Math.min((page - 1) * PAGE_SIZE + 1, filtered.length)}–
-                  {Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}
-                </span>
-                <div className="bk-page-btns">
-                  <button
-                    className="bk-page-btn"
-                    disabled={page === 1}
-                    onClick={() => setPage((p) => p - 1)}
-                  >‹</button>
-                  {Array.from({ length: pageCount }, (_, i) => i + 1)
-                    .filter((p) => p === 1 || p === pageCount || Math.abs(p - page) <= 1)
-                    .map((p, idx, arr) => (
-                      <>
-                        {idx > 0 && arr[idx - 1] !== p - 1 && (
-                          <span key={`gap-${p}`} style={{ color: "var(--bk-muted)", padding: "0 4px", fontSize: "0.6rem", alignSelf: "center" }}>…</span>
-                        )}
-                        <button
-                          key={p}
-                          className={`bk-page-btn ${page === p ? "active" : ""}`}
-                          onClick={() => setPage(p)}
-                        >{p}</button>
-                      </>
-                    ))}
-                  <button
-                    className="bk-page-btn"
-                    disabled={page === pageCount}
-                    onClick={() => setPage((p) => p + 1)}
-                  >›</button>
-                </div>
-              </div>
-            )}
           </div>
-
-        </AdminLayout>
+          {totalPages > 1 && (
+            <div className="sa-pager">
+              <button className="sa-btn" disabled={page <= 1 || loading} onClick={() => setPage((p) => p - 1)}>← Prev</button>
+              <span>Page {page} of {totalPages}</span>
+              <button className="sa-btn" disabled={page >= totalPages || loading} onClick={() => setPage((p) => p + 1)}>Next →</button>
+            </div>
+          )}
+        </div>
       </div>
-    </>
+    </AdminLayout>
   );
 }

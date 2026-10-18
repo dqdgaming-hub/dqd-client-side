@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 
+import { Lock } from "lucide-react";
 const GOLD   = "#D4AF37";
 const GOLDHI = "#F4D886";
 const PURPLE = "#7A2CFF";
@@ -108,7 +109,7 @@ export default function BookingQRCodeCard({ booking }) {
               background: `${PURPLE}11`,
               fontSize: 20,
             }}
-          >🔒</motion.div>
+          ><Lock size={20} aria-hidden="true" /></motion.div>
           <p style={{
             fontFamily:    "'Rajdhani', 'Inter', sans-serif",
             fontSize:      11, color: `${SILVER}66`,

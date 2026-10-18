@@ -17,7 +17,7 @@ const navItems = [
   
 
 
-  { label: "Spinner & Rewards",    to: "/admin/happy-hour" },
+  // { label: "Spinner & Rewards",    to: "/admin/happy-hour" },
   
   { label: "Loyalty Points", to: "/admin/loyalty" },
   { label: "Happy Hours", to: "/admin/happy-hour-slot-allocating" },

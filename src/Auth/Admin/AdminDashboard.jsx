@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import AdminLayout from "./AdminLayout";
 import { adminApi } from "../api/adminapi";
 
+import { TriangleAlert } from "lucide-react";
 const fallbackDashboard = {
   stats: {
     total_users: 0,
@@ -590,7 +591,7 @@ export default function AdminDashboard() {
           </section>
 
           {error && (
-            <div className="adm-alert">⚠ {error}</div>
+            <div className="adm-alert"><TriangleAlert className="ico" size="1.05em" aria-hidden="true" /> {error}</div>
           )}
 
           {/* ── Stats ── */}

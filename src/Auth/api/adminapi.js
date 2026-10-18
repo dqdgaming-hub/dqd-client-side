@@ -138,13 +138,13 @@ function getNavbarProfile() { return request("/auth/navbar-profile/"); }
 
 /* ── Bookings ─────────────────────────────────────────────────────────────── */
 
-function getBookings(params = {})             { return request(`/auth/admin/bookings/${buildQuery(params)}`); }
+function getBookings(params = {})             { return request(`/auth/admin/game-bookings/${buildQuery(params)}`); }
 function updateBookingStatus(bookingId, data) { return request(`/auth/admin/bookings/${bookingId}/`, { method: "PATCH", body: JSON.stringify(data) }); }
 
 /* ── Users ────────────────────────────────────────────────────────────────── */
 
 function getUsers(params = {})              { return request(`/auth/admin/users/${buildQuery(params)}`); }
-function updateUserStatus(userId, isActive) { return request(`/auth/admin/users/${userId}/`, { method: "PATCH", body: JSON.stringify({ is_active: isActive }) }); }
+function updateUserStatus(userId, isActive) { return request(`/auth/admin/users/${userId}/status/`, { method: "PATCH", body: JSON.stringify({ is_active: isActive }) }); }
 
 /* ── Games ────────────────────────────────────────────────────────────────── */
 
@@ -184,6 +184,8 @@ function getAdminUsers(params = {})             { return request(`/auth/admin/us
 function getAdminUserDetails(userId)            { return request(`/auth/admin/users/${userId}/`); }
 function updateAdminUserStatus(userId, isActive){ return request(`/auth/admin/users/${userId}/status/`, { method: "PATCH", body: JSON.stringify({ is_active: isActive }) }); }
 function deleteAdminUser(userId)                { return request(`/auth/admin/users/${userId}/delete/`, { method: "DELETE" }); }
+function createAdminUser(data)                  { return request("/auth/admin/users/", { method: "POST", body: JSON.stringify(data) }); }
+function updateAdminUser(userId, data)          { return request(`/auth/admin/users/${userId}/`, { method: "PATCH", body: JSON.stringify(data) }); }
 
 /* ── Event bookings ───────────────────────────────────────────────────────── */
 
@@ -202,7 +204,7 @@ function getComboBookings()  { return request("/auth/admin/bookings/combo-packs/
 function getBooking(id)      { return request(`/auth/admin/bookings/${id}/`); }
 function createBooking(data) { return request("/auth/admin/game-bookings/", { method: "POST", body: JSON.stringify(data) }); }
 function approveBooking(id)  { return request(`/auth/admin/bookings/${id}/approve/`, { method: "POST" }); }
-function rejectBooking(id)   { return request(`/auth/admin/bookings/${id}/reject/`, { method: "POST" }); }
+function rejectBooking(id, reason = "") { return request(`/auth/admin/bookings/${id}/reject/`, { method: "POST", body: JSON.stringify({ reason }) }); }
 function verifyBookingQR(qr_token) { return request("/auth/admin/bookings/verify-qr/", { method: "POST", body: JSON.stringify({ qr_token }) }); }
 
 function getGamingItems() { return request("/auth/admin/games/"); }
@@ -358,7 +360,7 @@ export const adminApi = {
   getNavbarProfile,
   getDashboard,
 
-  getBookings, updateBookingStatus,
+  updateBookingStatus,
   getUsers, updateUserStatus,
 
   getCategories, createCategory, updateCategory, deleteCategory,
@@ -369,6 +371,7 @@ export const adminApi = {
   getReports,
 
   getAdminUsers, getAdminUserDetails, updateAdminUserStatus, deleteAdminUser,
+  createAdminUser, updateAdminUser,
 
   getEventBookings, getEventBookingDetails, createEventBooking,
   approveEventBooking, rejectEventBooking, verifyEventQR,

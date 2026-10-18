@@ -1,586 +1,217 @@
-import { useMemo, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { CalendarDays, Clock, Ticket, Sparkles, Users } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
+import { CalendarDays, Clock, Flame, Ticket, Users } from "lucide-react";
+import { Reveal, SectionHead, SwipeHint } from "./homeTheme";
+import { homeCss, money, resolveImage } from "./homeStyles";
 
-const cardVariants = {
-  hidden: (index) => ({
-    opacity: 0,
-    y: 210,
-    x: index % 2 === 0 ? -120 : 120,
-    rotate: index % 2 === 0 ? -24 : 24,
-    rotateX: 38,
-    scale: 0.42,
-    transformOrigin: "50% 100%",
-  }),
-  visible: (index) => ({
-    opacity: 1,
-    y: 0,
-    x: 0,
-    rotate: 0,
-    rotateX: 0,
-    scale: 1,
-    transition: {
-      delay: 0.18 + index * 0.14,
-      duration: 0.92,
-      type: "spring",
-      stiffness: 118,
-      damping: 13,
-    },
-  }),
-};
+const css = `
+.ev2 { background: radial-gradient(ellipse 60% 50% at 10% 0%, rgba(255,45,120,.16), transparent 60%),
+  radial-gradient(ellipse 50% 50% at 95% 100%, rgba(123,47,255,.16), transparent 60%), #07060f; }
+.ev2 .hm-card { --acc: var(--pink); --acc2: var(--gold); }
 
-function formatDate(value) {
-  if (!value) return "Date TBA";
+/* featured event */
+.ev2-hero { --acc: var(--pink); position: relative; isolation: isolate; display: grid; grid-template-columns: 1.15fr 1fr; overflow: hidden;
+  border-radius: 28px; margin-bottom: 22px; min-height: 380px;
+  background: linear-gradient(135deg, #1a0d24, #0b0a18); border: 1px solid rgba(255,45,120,.3);
+  box-shadow: 0 30px 80px rgba(0,0,0,.5), 0 0 60px rgba(255,45,120,.12); }
+.ev2-hero::after { content: ""; position: absolute; inset: -1px; z-index: 3; border-radius: inherit; padding: 1.5px; pointer-events: none;
+  background: conic-gradient(from var(--ang, 0deg), transparent 0 70%, var(--pink) 80%, var(--gold) 88%, transparent 96%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+  animation: ev2-orbit 5s linear infinite; }
+@property --ang { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+@keyframes ev2-orbit { to { --ang: 360deg; } }
+.ev2-hero-media { position: relative; overflow: hidden; min-height: 260px; }
+.ev2-hero-media img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; animation: ev2-zoom 14s ease-in-out infinite alternate; }
+@keyframes ev2-zoom { from { transform: scale(1); } to { transform: scale(1.1); } }
+.ev2-hero-media::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent 40%, #110b1e 100%); }
+.ev2-hero-body { position: relative; display: flex; flex-direction: column; gap: 14px; padding: clamp(22px, 3vw, 38px); }
+.ev2-next { display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; padding: 7px 13px; border-radius: 999px;
+  font: 800 11px/1 'Orbitron', sans-serif; letter-spacing: .14em; text-transform: uppercase; color: #fff;
+  background: linear-gradient(135deg, var(--pink), #ff7a3d); box-shadow: 0 8px 24px rgba(255,45,120,.45); }
+.ev2-next i { width: 7px; height: 7px; border-radius: 50%; background: #fff; animation: ev2-ping 1.4s ease-out infinite; }
+@keyframes ev2-ping { 0% { box-shadow: 0 0 0 0 rgba(255,255,255,.8); } 100% { box-shadow: 0 0 0 9px rgba(255,255,255,0); } }
+.ev2-hero h3 { margin: 0; font: 900 clamp(24px, 3.2vw, 38px)/1.05 'Orbitron', sans-serif; text-transform: uppercase; letter-spacing: .02em; }
+.ev2-hero p { margin: 0; color: #b7b1d6; font-size: 16px; line-height: 1.55; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 
-  return new Date(value).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+.ev2-count { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.ev2-count div { padding: 10px 4px; border-radius: 14px; text-align: center; background: rgba(255,255,255,.04); border: 1px solid rgba(255,45,120,.25); }
+.ev2-count b { display: block; font: 900 clamp(20px, 2.6vw, 28px)/1 'Orbitron', sans-serif; color: #fff; text-shadow: 0 0 18px rgba(255,45,120,.6); }
+.ev2-count small { display: block; margin-top: 5px; font: 700 10px/1 'Share Tech Mono', monospace; letter-spacing: .18em; color: #a9a3c8; text-transform: uppercase; }
+.ev2-live { padding: 12px; border-radius: 14px; text-align: center; font: 800 14px/1 'Orbitron', sans-serif; letter-spacing: .12em;
+  color: #fff; background: linear-gradient(135deg, rgba(255,45,120,.3), rgba(255,122,61,.25)); border: 1px solid rgba(255,45,120,.5); }
+
+/* date block on cards */
+.ev2-date { position: absolute; z-index: 1; top: 12px; right: 12px; width: 54px; padding: 8px 0 7px; border-radius: 14px; text-align: center;
+  background: rgba(5,5,15,.75); border: 1px solid rgba(255,45,120,.45); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.ev2-date b { display: block; font: 900 20px/1 'Orbitron', sans-serif; color: #fff; }
+.ev2-date small { display: block; margin-top: 3px; font: 700 10px/1 'Share Tech Mono', monospace; letter-spacing: .14em; color: var(--pink); text-transform: uppercase; }
+
+.ev2-seats { display: grid; gap: 6px; }
+.ev2-seats span { display: flex; justify-content: space-between; font-size: 13px; color: #a9a3c8; }
+.ev2-seats span b { color: #fff; }
+.ev2-bar { height: 6px; border-radius: 6px; background: rgba(255,255,255,.08); overflow: hidden; }
+.ev2-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--gold), var(--pink)); box-shadow: 0 0 10px rgba(255,45,120,.6); }
+
+@media (max-width: 860px) {
+  .ev2-hero { grid-template-columns: 1fr; }
+  .ev2-hero-media { min-height: 220px; aspect-ratio: 16 / 9; }
+  .ev2-hero-media::after { background: linear-gradient(0deg, #110b1e 0%, transparent 55%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ev2-hero::after, .ev2-hero-media img, .ev2-next i { animation: none; }
+}
+`;
+
+const toDate = (ev) => new Date(`${String(ev.event_date).slice(0, 10)}T${ev.start_time || "00:00"}`);
+
+function niceTime(t) {
+  if (!t) return "";
+  const [h, m] = String(t).split(":").map(Number);
+  return `${((h + 11) % 12) + 1}:${String(m || 0).padStart(2, "0")} ${h >= 12 ? "PM" : "AM"}`;
+}
+const niceDate = (d) =>
+  d ? new Date(`${String(d).slice(0, 10)}T00:00:00`).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" }) : "";
+
+function useCountdown(target) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const left = Math.max(0, target - now);
+  return {
+    left,
+    d: Math.floor(left / 86400000),
+    h: Math.floor((left / 3600000) % 24),
+    m: Math.floor((left / 60000) % 60),
+    s: Math.floor((left / 1000) % 60),
+  };
 }
 
-function formatTime(value) {
-  if (!value) return "Time TBA";
-
-  const [hours = "0", minutes = "0"] = value.split(":");
-  const date = new Date();
-  date.setHours(Number(hours), Number(minutes), 0, 0);
-
-  return date.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
-function FolderLaunch({ onOpen }) {
+function Seats({ left }) {
+  const n = Number(left);
+  if (!Number.isFinite(n)) return null;
+  // Visual only: a fuller bar as seats run out makes "book soon" obvious.
+  const fill = n <= 0 ? 100 : Math.max(12, Math.min(95, 100 - n * 4));
   return (
-    <motion.button
-      type="button"
-      className="event-folder"
-      onClick={onOpen}
-      initial={{ opacity: 0, y: 40, scale: 0.94 }}
-      whileInView={{ opacity: 1, y: 0, scale: 1 }}
-      viewport={{ once: true }}
-      whileHover={{ y: -10, rotateX: 8, rotateY: -8 }}
-      whileTap={{ scale: 0.96 }}
-      aria-label="Open upcoming events"
-    >
-      <span className="event-folder__back" />
-      <span className="event-folder__tab" />
-      <span className="event-folder__body">
-        <span className="event-folder__shine" />
-        <Sparkles size={28} />
-        <strong>Open Event Vault</strong>
-        <small>Tap to reveal passes</small>
+    <div className="ev2-seats">
+      <span>
+        <span>{n <= 0 ? "Sold out" : n <= 5 ? "Almost full!" : "Seats left"}</span>
+        <b>{Math.max(n, 0)}</b>
       </span>
-      <span className="event-folder__pulse" />
-    </motion.button>
+      <div className="ev2-bar"><i style={{ width: `${fill}%` }} /></div>
+    </div>
   );
 }
 
-function EventFlipCard({ event, index, onBook }) {
-  const [flipped, setFlipped] = useState(false);
-  const title = event.title || event.name || "Untitled Event";
-  const image = event.image || event.imageUrl || event.cover;
-  const date = formatDate(event.event_date || event.date);
-  const startsAt = formatTime(event.start_time || event.time);
-  const endsAt = formatTime(event.end_time);
-  const price = event.price ? `₹${Number(event.price).toLocaleString("en-IN")}` : "Login required";
-  const slots = event.available_slots ?? event.slots;
-
+function Featured({ ev, onBook }) {
+  const start = toDate(ev).getTime();
+  const { left, d, h, m, s } = useCountdown(start);
   return (
-    <motion.article
-      className={`event-card ${flipped ? "is-flipped" : ""}`}
-      custom={index}
-      variants={cardVariants}
-      initial="hidden"
-      animate="visible"
-      whileHover={{ y: -12 }}
-      onClick={() => setFlipped((value) => !value)}
+    <motion.div
+      className="ev2-hero"
+      initial={{ opacity: 0, y: 40, scale: 0.97 }}
+      whileInView={{ opacity: 1, y: 0, scale: 1 }}
+      viewport={{ once: true, amount: 0.3 }}
+      transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
     >
-      <div className="event-card__inner">
-        <div className="event-card__face event-card__front">
-          <img
-            src={image}
-            alt={title}
-            className="event-card__image"
-          />
-          <div className="event-card__scan" />
-          <div className="event-card__content">
-            <span className="event-card__eyebrow">{event.category || "Live Event"}</span>
-            <h3>{title}</h3>
-            <div className="event-card__meta">
-              <span><CalendarDays size={14} /> {date}</span>
-              <span><Clock size={14} /> {startsAt}{event.end_time ? ` - ${endsAt}` : ""}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="event-card__face event-card__back">
-          <div className="event-card__back-scroll">
-            <span className="event-card__eyebrow">Event Brief</span>
-            <h3>{title}</h3>
-            <p>{event.description || event.details || "Step inside for a high-energy experience built for the next wave of fans."}</p>
-            <div className="event-card__details">
-              <span><CalendarDays size={14} /> {date}</span>
-              <span><Clock size={14} /> {startsAt}{event.end_time ? ` - ${endsAt}` : ""}</span>
-              <span><Ticket size={14} /> {price}</span>
-              {slots !== undefined && <span><Users size={14} /> {slots} slots left</span>}
-            </div>
-          </div>
-          <motion.button
-            type="button"
-            className="event-book"
-            onClick={(e) => {
-              e.stopPropagation();
-              onBook();
-            }}
-            whileHover={{ scale: 1.04 }}
-            whileTap={{ scale: 0.96 }}
-          >
-            Login to Book
-          </motion.button>
-        </div>
+      <div className="ev2-hero-media">
+        {ev.image ? <img src={resolveImage(ev.image)} alt="" /> : <div className="hm-ph"><Ticket size={64} strokeWidth={1.3} aria-hidden="true" /></div>}
       </div>
-    </motion.article>
+      <div className="ev2-hero-body">
+        <span className="ev2-next"><i aria-hidden="true" /> Next event</span>
+        <h3>{ev.title}</h3>
+        <div className="hm-meta" style={{ "--acc": "#ff2d78" }}>
+          <span><CalendarDays size={16} /> {niceDate(ev.event_date)}</span>
+          <span><Clock size={16} /> {niceTime(ev.start_time)}{ev.end_time ? ` – ${niceTime(ev.end_time)}` : ""}</span>
+          <span><Ticket size={16} /> {Number(ev.price) > 0 ? money(ev.price) : "Free entry"}</span>
+        </div>
+        {ev.description && <p>{ev.description}</p>}
+        {left > 0 ? (
+          <div className="ev2-count" aria-label="Time until the event starts">
+            {[[d, "Days"], [h, "Hrs"], [m, "Min"], [s, "Sec"]].map(([v, l]) => (
+              <div key={l}>
+                <b>{String(v).padStart(2, "0")}</b>
+                <small>{l}</small>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="ev2-live">Happening now</div>
+        )}
+        <Seats left={ev.available_slots} />
+        <button type="button" className="hm-btn" style={{ "--acc": "#ff2d78" }} onClick={onBook} disabled={Number(ev.available_slots) <= 0}>
+          <Flame size={16} aria-hidden="true" /> Login to Book
+        </button>
+      </div>
+    </motion.div>
   );
 }
 
-export default function EventSection({ events = [] }) {
-  const [opened, setOpened] = useState(false);
+// `page` mode (the /events page): every event, a vertical grid, no section header.
+export default function EventSection({ events = [], page = false }) {
   const navigate = useNavigate();
-  const visibleEvents = useMemo(() => events.slice(0, 8), [events]);
-
   if (!events.length) return null;
 
-  const goToSignIn = () => navigate("/sign-in");
+  const sorted = [...events].sort((a, b) => toDate(a) - toDate(b)).slice(0, page ? undefined : 8);
+  const [first, ...rest] = sorted;
+  const book = () => navigate("/sign-in");
 
   return (
-    <>
-      <style>{`
-        .ev-section {
-          background:
-            linear-gradient(135deg, rgba(4, 7, 22, 0.96), rgba(16, 6, 35, 0.96)),
-            radial-gradient(circle at 18% 18%, rgba(0, 229, 255, 0.2), transparent 34%),
-            radial-gradient(circle at 82% 12%, rgba(255, 0, 110, 0.18), transparent 30%);
-          padding: 86px 0 96px;
-          position: relative;
-          overflow: hidden;
-          color: #fff;
-        }
+    <section className="hm-sec ev2" id="events" aria-label="Upcoming events">
+      <style>{homeCss + css}</style>
+      <div className="hm-glow" style={{ top: -200, left: -160, background: "rgba(255,45,120,.25)" }} aria-hidden="true" />
+      <div className="hm-in" style={{ "--acc": "#ff2d78", "--acc2": "#ffd60a" }}>
+        {!page && <SectionHead
+            eyebrow="Don't miss out"
+            title="Upcoming"
+            accent="Events"
+            sub="Tournaments, watch parties and game nights. Seats are limited."
+            to="/events"
+            toLabel="All events"
+          />}
 
-        .ev-section::before {
-          content: "";
-          position: absolute;
-          inset: 0;
-          background-image:
-            linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px);
-          background-size: 54px 54px;
-          mask-image: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent 84%);
-          pointer-events: none;
-        }
+        <Featured ev={first} onBook={book} />
 
-        .ev-inner {
-          max-width: 1220px;
-          margin: 0 auto;
-          padding: 0 22px;
-          position: relative;
-          z-index: 1;
-        }
-
-        .ev-header {
-          display: flex;
-          align-items: end;
-          justify-content: space-between;
-          gap: 24px;
-          margin-bottom: 42px;
-        }
-
-        .ev-title {
-          font-family: 'Orbitron', sans-serif;
-          font-size: clamp(28px, 5vw, 58px);
-          line-height: 0.98;
-          margin: 0;
-          text-transform: uppercase;
-        }
-
-        .ev-sub {
-          color: #00e5ff;
-          display: block;
-          font-family: 'Share Tech Mono', monospace;
-          font-size: 12px;
-          letter-spacing: 4px;
-          margin-bottom: 12px;
-          text-transform: uppercase;
-        }
-
-        .ev-hint {
-          color: rgba(255,255,255,0.68);
-          font-family: 'Share Tech Mono', monospace;
-          font-size: 12px;
-          letter-spacing: 2px;
-          margin: 0;
-          text-transform: uppercase;
-        }
-
-        .event-folder {
-          appearance: none;
-          background: transparent;
-          border: 0;
-          cursor: pointer;
-          display: block;
-          height: 360px;
-          margin: 30px auto 0;
-          perspective: 1000px;
-          position: relative;
-          width: min(560px, 86vw);
-        }
-
-        .event-folder::before,
-        .event-folder::after {
-          background: linear-gradient(135deg, rgba(0,229,255,0.9), rgba(255,0,110,0.9));
-          border: 1px solid rgba(255,255,255,0.28);
-          border-radius: 8px;
-          content: "";
-          height: 170px;
-          left: 50%;
-          opacity: 0.76;
-          position: absolute;
-          top: 104px;
-          transform-origin: 50% 100%;
-          width: 118px;
-          z-index: 1;
-        }
-
-        .event-folder::before {
-          animation: peekCardLeft 2s ease-in-out infinite;
-          transform: translateX(-92px) rotate(-13deg);
-        }
-
-        .event-folder::after {
-          animation: peekCardRight 2s ease-in-out infinite 0.22s;
-          transform: translateX(-16px) rotate(10deg);
-        }
-
-        .event-folder__back,
-        .event-folder__tab,
-        .event-folder__body {
-          position: absolute;
-          filter: drop-shadow(0 28px 38px rgba(0,0,0,0.38));
-        }
-
-        .event-folder__back {
-          background: linear-gradient(135deg, #120a40, #5227ff);
-          border: 1px solid rgba(255,255,255,0.22);
-          border-radius: 18px;
-          inset: 82px 28px 30px;
-          transform: rotateX(16deg) skewX(-5deg);
-        }
-
-        .event-folder__tab {
-          background: linear-gradient(135deg, #00e5ff, #5227ff);
-          border-radius: 18px 24px 8px 8px;
-          height: 82px;
-          left: 56px;
-          top: 40px;
-          width: 210px;
-        }
-
-        .event-folder__body {
-          align-items: center;
-          background: linear-gradient(135deg, #5227ff 0%, #8b5cf6 48%, #ff006e 100%);
-          border: 1px solid rgba(255,255,255,0.26);
-          border-radius: 24px;
-          bottom: 26px;
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-          inset-inline: 0;
-          justify-content: center;
-          overflow: hidden;
-          top: 108px;
-          transform: rotateX(8deg);
-          z-index: 2;
-        }
-
-        .event-folder__body strong {
-          font-family: 'Orbitron', sans-serif;
-          font-size: clamp(22px, 4vw, 38px);
-          letter-spacing: 1px;
-        }
-
-        .event-folder__body small {
-          color: rgba(255,255,255,0.76);
-          font-family: 'Share Tech Mono', monospace;
-          letter-spacing: 3px;
-          text-transform: uppercase;
-        }
-
-        .event-folder__shine {
-          animation: folderSweep 2.4s infinite;
-          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.34), transparent);
-          height: 180%;
-          position: absolute;
-          top: -40%;
-          transform: rotate(20deg);
-          width: 80px;
-        }
-
-        .event-folder__pulse {
-          animation: folderPulse 2s infinite;
-          border: 1px solid rgba(0,229,255,0.35);
-          border-radius: 28px;
-          inset: 90px 14px 14px;
-          position: absolute;
-        }
-
-        .ev-carousel {
-          display: grid;
-          gap: 22px;
-          grid-auto-flow: column;
-          grid-auto-columns: minmax(280px, 360px);
-          overflow-x: auto;
-          padding: 34px 4px 24px;
-          scroll-snap-type: x mandatory;
-          scrollbar-width: none;
-          perspective: 1200px;
-        }
-
-        .ev-carousel::-webkit-scrollbar { display: none; }
-
-        .event-card {
-          background: transparent;
-          cursor: pointer;
-          height: 480px;
-          perspective: 1300px;
-          scroll-snap-align: center;
-        }
-
-        .event-card__inner {
-          height: 100%;
-          position: relative;
-          transform-style: preserve-3d;
-          transition: transform 0.76s cubic-bezier(.2,.8,.2,1);
-        }
-
-        .event-card.is-flipped .event-card__inner {
-          transform: rotateY(180deg);
-        }
-
-        .event-card__face {
-          backface-visibility: hidden;
-          background: rgba(8, 12, 28, 0.9);
-          border: 1px solid rgba(255,255,255,0.18);
-          border-radius: 8px;
-          box-shadow: 0 24px 70px rgba(0,0,0,0.44), inset 0 0 34px rgba(0,229,255,0.08);
-          clip-path: polygon(0 0, calc(100% - 22px) 0, 100% 22px, 100% 100%, 22px 100%, 0 calc(100% - 22px));
-          inset: 0;
-          overflow: hidden;
-          position: absolute;
-        }
-
-        .event-card__front::after,
-        .event-card__back::after {
-          background: linear-gradient(90deg, transparent, rgba(0,229,255,0.75), transparent);
-          content: "";
-          height: 2px;
-          left: 18px;
-          position: absolute;
-          right: 18px;
-          top: 18px;
-        }
-
-        .event-card__back {
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
-          padding: 28px;
-          transform: rotateY(180deg);
-        }
-
-        .event-card__back-scroll {
-          flex: 1;
-          min-height: 0;
-          overflow-y: auto;
-          padding-right: 6px;
-          scrollbar-color: rgba(0,229,255,0.8) rgba(255,255,255,0.08);
-          scrollbar-width: thin;
-        }
-
-        .event-card__back-scroll::-webkit-scrollbar {
-          width: 6px;
-        }
-
-        .event-card__back-scroll::-webkit-scrollbar-track {
-          background: rgba(255,255,255,0.08);
-          border-radius: 999px;
-        }
-
-        .event-card__back-scroll::-webkit-scrollbar-thumb {
-          background: linear-gradient(#00e5ff, #ff006e);
-          border-radius: 999px;
-        }
-
-        .event-card__image {
-          height: 100%;
-          object-fit: cover;
-          width: 100%;
-        }
-
-        .event-card__scan {
-          animation: scanLine 3s linear infinite;
-          background: linear-gradient(to bottom, transparent, rgba(0,229,255,0.22), transparent);
-          height: 90px;
-          left: 0;
-          position: absolute;
-          right: 0;
-          top: -100px;
-        }
-
-        .event-card__content {
-          background: linear-gradient(to top, rgba(2,4,12,0.96), rgba(2,4,12,0.72), transparent);
-          bottom: 0;
-          left: 0;
-          padding: 110px 24px 24px;
-          position: absolute;
-          right: 0;
-        }
-
-        .event-card__eyebrow {
-          color: #00e5ff;
-          font-family: 'Share Tech Mono', monospace;
-          font-size: 11px;
-          letter-spacing: 3px;
-          text-transform: uppercase;
-        }
-
-        .event-card h3 {
-          font-family: 'Orbitron', sans-serif;
-          font-size: 24px;
-          line-height: 1.08;
-          margin: 9px 0 14px;
-        }
-
-        .event-card p {
-          color: rgba(255,255,255,0.75);
-          line-height: 1.65;
-          margin: 0;
-        }
-
-        .event-card__meta,
-        .event-card__details {
-          display: grid;
-          gap: 10px;
-        }
-
-        .event-card__meta span,
-        .event-card__details span {
-          align-items: center;
-          color: rgba(255,255,255,0.78);
-          display: flex;
-          font-family: 'Share Tech Mono', monospace;
-          font-size: 12px;
-          gap: 8px;
-        }
-
-        .event-book {
-          background: linear-gradient(90deg, #00e5ff, #ff006e);
-          border: 0;
-          border-radius: 8px;
-          color: #fff;
-          cursor: pointer;
-          font-family: 'Share Tech Mono', monospace;
-          font-size: 12px;
-          font-weight: 700;
-          letter-spacing: 3px;
-          margin-top: 8px;
-          padding: 14px 18px;
-          text-transform: uppercase;
-        }
-
-        @keyframes folderSweep {
-          0% { left: -120px; }
-          55%, 100% { left: calc(100% + 120px); }
-        }
-
-        @keyframes folderPulse {
-          0%, 100% { opacity: 0.24; transform: scale(1); }
-          50% { opacity: 0.58; transform: scale(1.035); }
-        }
-
-        @keyframes scanLine {
-          0% { top: -100px; }
-          100% { top: 100%; }
-        }
-
-        @keyframes peekCardLeft {
-          0%, 100% { transform: translateX(-92px) translateY(16px) rotate(-13deg); }
-          50% { transform: translateX(-116px) translateY(-22px) rotate(-21deg); }
-        }
-
-        @keyframes peekCardRight {
-          0%, 100% { transform: translateX(-16px) translateY(14px) rotate(10deg); }
-          50% { transform: translateX(18px) translateY(-28px) rotate(18deg); }
-        }
-
-        @media (max-width: 760px) {
-          .ev-section { padding: 60px 0 72px; }
-          .ev-header { align-items: start; flex-direction: column; }
-          .event-folder { height: 300px; }
-          .event-folder__body strong { font-size: 24px; }
-          .ev-carousel { grid-auto-columns: 82vw; }
-          .event-card { height: 440px; }
-        }
-      `}</style>
-
-      <section className="ev-section">
-        <div className="ev-inner">
-          <motion.div
-            className="ev-header"
-            initial={{ opacity: 0, y: 22 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.62 }}
-          >
-            <div>
-              <span className="ev-sub">Future Schedule</span>
-              <h2 className="ev-title">Upcoming Events</h2>
+        {rest.length > 0 && (
+          <>
+            <div className={`hm-row${page ? " stacked" : ""}`} style={{ "--cols": 3 }}>
+              {rest.map((ev, i) => {
+                const dt = new Date(`${String(ev.event_date).slice(0, 10)}T00:00:00`);
+                return (
+                  <Reveal key={ev.id} index={i} className="hm-card">
+                    <div className="hm-media">
+                      {ev.image ? <img src={resolveImage(ev.image)} alt="" loading="lazy" /> : <div className="hm-ph"><Ticket size={64} strokeWidth={1.3} aria-hidden="true" /></div>}
+                      <span className="hm-badge"><Flame size={12} aria-hidden="true" /> Live event</span>
+                      <span className="ev2-date" aria-hidden="true">
+                        <b>{dt.getDate()}</b>
+                        <small>{dt.toLocaleDateString("en-IN", { month: "short" })}</small>
+                      </span>
+                    </div>
+                    <div className="hm-body">
+                      <h3 className="hm-name">{ev.title}</h3>
+                      <div className="hm-meta">
+                        <span><CalendarDays size={15} /> {niceDate(ev.event_date)}</span>
+                        <span><Clock size={15} /> {niceTime(ev.start_time)}{ev.end_time ? ` – ${niceTime(ev.end_time)}` : ""}</span>
+                      </div>
+                      {ev.description && <p className="hm-text">{ev.description}</p>}
+                      <Seats left={ev.available_slots} />
+                      <div className="hm-foot">
+                        <span className="hm-price">{Number(ev.price) > 0 ? money(ev.price) : "Free"}</span>
+                        <button type="button" className="hm-btn" onClick={book} disabled={Number(ev.available_slots) <= 0}>
+                          <Users size={15} aria-hidden="true" /> Login to Book
+                        </button>
+                      </div>
+                    </div>
+                  </Reveal>
+                );
+              })}
             </div>
-            <p className="ev-hint">{opened ? "Tap a card to flip details" : "Open the folder"}</p>
-          </motion.div>
-
-          <AnimatePresence mode="wait">
-            {!opened ? (
-              <motion.div
-                key="folder"
-                exit={{ opacity: 0, scale: 0.8, y: -80, rotateX: 18 }}
-                transition={{ duration: 0.45 }}
-              >
-                <FolderLaunch onOpen={() => setOpened(true)} />
-              </motion.div>
-            ) : (
-              <motion.div
-                key="events"
-                className="ev-carousel"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-              >
-                {visibleEvents.map((event, index) => (
-                  <EventFlipCard
-                    key={event.id || event.title || index}
-                    event={event}
-                    index={index}
-                    onBook={goToSignIn}
-                  />
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      </section>
-    </>
+            {!page && <SwipeHint count={rest.length} />}
+          </>
+        )}
+      </div>
+    </section>
   );
 }

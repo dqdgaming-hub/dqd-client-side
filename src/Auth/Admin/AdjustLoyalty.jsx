@@ -4,6 +4,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import AdminLayout from "./AdminLayout";
 import { adminApi } from "../api/adminapi";
 
+import { Check, CircleAlert } from "lucide-react";
 const neon = { cyan: "#00f5ff", pink: "#ff2d78", yellow: "#ffe600", card: "#0d0d1a" };
 
 const styles = `
@@ -109,7 +110,7 @@ export default function AdjustLoyalty() {
       await adminApi.adjustUserLoyalty(id, {
         action: form.action,
         points: Number(form.points),
-        reason: form.reason,
+        reason: form.reason.trim(),
       });
       setStatus({ type: "success", message: "Loyalty points updated successfully." });
       setTimeout(() => navigate(`/admin/loyalty/${id}`), 700);
@@ -117,7 +118,7 @@ export default function AdjustLoyalty() {
       console.error(err);
       setStatus({
         type: "error",
-        message: err?.response?.data?.message || "Failed to update loyalty points.",
+        message: err?.body?.detail || err?.message || "Failed to update loyalty points.",
       });
     } finally {
       setLoading(false);
@@ -170,7 +171,7 @@ export default function AdjustLoyalty() {
             <form onSubmit={submit} className="al-body">
               {status && (
                 <div className={`al-banner ${status.type}`}>
-                  <span>{status.type === "success" ? "✓" : "!"}</span>
+                  <span>{status.type === "success" ? <Check size={14} aria-hidden="true" /> : <CircleAlert size={14} aria-hidden="true" />}</span>
                   <span>{status.message}</span>
                 </div>
               )}

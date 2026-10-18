@@ -1,4 +1,5 @@
 import React, { useRef } from "react";
+import { Link } from "react-router-dom";
 import { motion, useInView, useReducedMotion } from "framer-motion";
 
 /* ══════════════════════════════════════════════════════
@@ -129,31 +130,24 @@ const SOCIAL = [
   { label: "Email",      Icon: MailIcon,      url: "mailto:dqdgaminghub3003@gmail.com" },
 ];
 
-// Dashboard section scroll targets — IDs match the id attributes added to UserDashboard
+// Public site pages. About Us and Enquiry live here (not in the bottom nav bar).
 const QUICK_LINKS = [
-  { label: "Welcome",    sectionId: "section-welcome"  },
-  { label: "Events",     sectionId: "section-events"   },
-  { label: "Bookings",   sectionId: "section-bookings" },
-  { label: "Games",      sectionId: "section-games"    },
-  { label: "Combos",     sectionId: "section-combos"   },
-  { label: "Happy Hour",    sectionId: "section-happy-hour"  },
-  { label: "Streamings", sectionId: "section-streams"  },
+  { label: "About Us",     href: "/aboutus",     highlight: true },
+  { label: "Enquiry",      href: "/enquiries",   highlight: true },
+  { label: "Games",        href: "/games" },
+  { label: "Events",       href: "/events" },
+  { label: "Combo Packs",  href: "/combo-packs" },
+  { label: "Streaming",    href: "/streaming" },
 ];
 
-function scrollToSection(sectionId) {
-  const el = document.getElementById(sectionId);
-  if (el) {
-    el.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
-}
-
 const ACCOUNT_LINKS = [
-  { label: "Edit Profile",    href: "/user/profile-settings" },
-  { label: "Loyalty Points",  href: "/user/claim-points" },
-  // { label: "Notifications",   href: "/user/notifications" },
+  { label: "Sign In",         href: "/sign-in" },
+  { label: "Create Account",  href: "/sign-in#signup" },
   { label: "Privacy Policy",  href: "/privacy-policy" },
   { label: "Contact Us",      href: "/contact-us" },
 ];
+
+const MotionLink = motion.create(Link);
 
 /* ══════════════════════════════════════════════════════
    ANIMATION VARIANTS
@@ -453,6 +447,8 @@ export default function UserFooter() {
       0%,100% { opacity:1; box-shadow: 0 0 8px ${T.purple}, 0 0 18px rgba(123,47,255,0.4); }
       50%      { opacity:.4; box-shadow: 0 0 4px ${T.purple}; }
     }
+    .ft2-root { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+    .ft2-link-hot { color: #f4d886 !important; font-weight: 700; }
     @media (prefers-reduced-motion: reduce) {
       .ft2-status-dot { animation: none; }
     }
@@ -501,7 +497,7 @@ export default function UserFooter() {
           </div>
 
           <p className="ft2-tagline">
-            Kochi's premier gaming arena — book sessions, spin for rewards, and join exclusive member events.
+            Kochi's premier gaming arena — book sessions, catch happy-hour deals, and join exclusive member events.
           </p>
 
           <div className="ft2-sep">
@@ -545,29 +541,27 @@ export default function UserFooter() {
           animate={inView ? "visible" : "hidden"}
         >
           <div className="ft2-col-head">
-            <span className="ft2-col-title">On This Page</span>
+            <span className="ft2-col-title">Explore</span>
             <div className="ft2-col-rule"/>
           </div>
           <motion.nav
             className="ft2-links"
-            aria-label="Page sections"
+            aria-label="Explore DQD Gaming"
             variants={staggerContainer}
             initial="hidden"
             animate={inView ? "visible" : "hidden"}
           >
             {QUICK_LINKS.map((l) => (
-              <motion.button
+              <MotionLink
                 key={l.label}
-                className="ft2-link"
-                type="button"
-                onClick={() => scrollToSection(l.sectionId)}
-                aria-label={`Scroll to ${l.label} section`}
+                className={`ft2-link${l.highlight ? " ft2-link-hot" : ""}`}
+                to={l.href}
                 variants={linkVariant}
                 whileTap={{ scale: 0.97 }}
               >
                 <span className="ft2-link-arrow"><ChevronRightIcon/></span>
                 {l.label}
-              </motion.button>
+              </MotionLink>
             ))}
           </motion.nav>
         </motion.div>
@@ -594,15 +588,15 @@ export default function UserFooter() {
             animate={inView ? "visible" : "hidden"}
           >
             {ACCOUNT_LINKS.map((l) => (
-              <motion.a
+              <MotionLink
                 key={l.label}
                 className="ft2-link"
-                href={l.href}
+                to={l.href}
                 variants={linkVariant}
               >
                 <span className="ft2-link-arrow"><ChevronRightIcon/></span>
                 {l.label}
-              </motion.a>
+              </MotionLink>
             ))}
           </motion.nav>
         </motion.div>

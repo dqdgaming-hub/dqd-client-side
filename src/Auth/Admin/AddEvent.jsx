@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import AdminLayout from "./AdminLayout";
 import { adminCss } from "./adminTheme";
 
+import { TriangleAlert, X } from "lucide-react";
 const IMG_CSS = `
   .adm-img-drop {
     border: 1px dashed rgba(0,255,225,0.25);
@@ -77,7 +78,7 @@ function ImageDropField({ file, onChange }) {
             onClick={() => onChange(null)}
             title="Remove image"
           >
-            ✕
+            <X size={16} aria-hidden="true" />
           </button>
         </div>
       ) : (
@@ -166,7 +167,7 @@ export default function AddEvent() {
             </button>
           </section>
 
-          {error && <div className="adm-alert">⚠ {error}</div>}
+          {error && <div className="adm-alert"><TriangleAlert className="ico" size="1.05em" aria-hidden="true" /> {error}</div>}
 
           {/* ── Form panel ── */}
           <article className="adm-panel">

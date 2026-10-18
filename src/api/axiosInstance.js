@@ -15,6 +15,8 @@ const axiosInstance = axios.create({
 axiosInstance.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("access_token");
+    const deviceId = localStorage.getItem("dqd_device_id");
+    if (deviceId) config.headers["X-Device-ID"] = deviceId;
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }

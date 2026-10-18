@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { adminApi } from "../api/adminapi";
+import { showWhatsApp } from "../../utils/whatsapp";
 import AdminLayout from "./AdminLayout";
 import { bookingCss } from "./bookingTheme.jsx";
 
+import { TriangleAlert, X, Zap } from "lucide-react";
 const INITIAL_FORM = {
   user: "",
   guest_name: "",
@@ -152,7 +154,11 @@ export default function AddBooking() {
       setError("End time must be after start time."); return;
     }
     if (!form.user && !form.guest_name)  { setError("Customer name is required for guest bookings.");  return; }
-    if (!form.user && !form.guest_email) { setError("Customer email is required for guest bookings."); return; }
+    if (!form.user && !form.guest_phone && !form.guest_email) { setError("Customer mobile number is required for guest bookings."); return; }
+    if (!form.user && form.guest_phone && !/^\+?\d{8,15}$/.test(form.guest_phone.replace(/[\s-]/g, ""))) {
+      setError("Enter a valid mobile number for the guest."); return;
+    }
+    if (members.some((m) => !m.name.trim())) { setError("Every added member needs a name."); return; }
 
     setSub(true);
     try {
@@ -166,7 +172,8 @@ export default function AddBooking() {
         delete payload.guest_email;
         delete payload.guest_phone;
       }
-      await adminApi.createBooking({ ...payload, members });
+      const created = await adminApi.createBooking({ ...payload, members });
+      showWhatsApp(created?.whatsapp_url, "Send booking details to the customer");
       navigate("/admin/bookings");
     } catch (err) {
       setError(err.message || "Failed to create booking.");
@@ -213,7 +220,7 @@ export default function AddBooking() {
             </button>
           </section>
 
-          {error && <div className="bk-alert">⚠ {error}</div>}
+          {error && <div className="bk-alert"><TriangleAlert className="ico" size="1.05em" aria-hidden="true" /> {error}</div>}
 
           <form onSubmit={submit}>
 
@@ -355,7 +362,7 @@ export default function AddBooking() {
                     <label className="bk-toggle-wrap">
                       <input className="bk-toggle-input" type="checkbox" name="is_happy_hour"
                         checked={form.is_happy_hour} onChange={handleChange} />
-                      <span className="bk-toggle-label">⚡ Happy Hour Booking</span>
+                      <span className="bk-toggle-label"><Zap className="ico" size="1.05em" aria-hidden="true" /> Happy Hour Booking</span>
                     </label>
                   </div>
 
@@ -447,7 +454,7 @@ export default function AddBooking() {
                     </div>
                     <button type="button" className="bk-btn-danger"
                       style={{ padding: "9px 14px", marginBottom: i === 0 ? 0 : undefined }}
-                      onClick={() => removeMember(i)}>✕</button>
+                      onClick={() => removeMember(i)} aria-label="Remove player"><X size={14} aria-hidden="true" /></button>
                   </div>
                 ))}
 

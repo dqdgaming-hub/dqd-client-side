@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getTerms } from "../api/client";
 
+import { X } from "lucide-react";
 /* ------------------------------------------------------------------ */
 /*  Content — DQD Gaming Hub Terms & Conditions                       */
 /*  Structured so each clause renders as its own "console readout"     */
@@ -918,7 +919,7 @@ const TermsModal = ({ open, onClose }) => {
                                 onClick={onClose}
                                 aria-label="Close"
                             >
-                                ✕
+                                <X size={18} aria-hidden="true" />
                             </button>
                         </div>
 

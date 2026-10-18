@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { adminApi } from "../api/adminapi";
+import { showWhatsApp } from "../../utils/whatsapp";
 import AdminLayout from "./AdminLayout";
 
+import { Ticket } from "lucide-react";
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Share+Tech+Mono&display=swap');
 
@@ -218,7 +220,8 @@ export default function AddEventBooking() {
   const submit = async (e) => {
     e.preventDefault();
     try {
-      await adminApi.createEventBooking(form);
+      const created = await adminApi.createEventBooking(form);
+      showWhatsApp(created?.whatsapp_url, "Send event booking details");
       navigate("/admin/event-bookings");
     } catch (err) {
       alert(err.message);
@@ -231,7 +234,7 @@ export default function AddEventBooking() {
       <div className="eb-wrapper">
 
         <div className="eb-header">
-          <div className="eb-header-icon">🎟</div>
+          <div className="eb-header-icon"><Ticket size={22} aria-hidden="true" /></div>
           <div>
             <h2 className="eb-title">New Booking</h2>
             <div className="eb-subtitle">Event Registration System</div>

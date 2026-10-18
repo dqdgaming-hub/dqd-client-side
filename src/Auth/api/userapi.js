@@ -287,3 +287,23 @@ export const getUpcomingHappyHour = async () => {
 
   return response.data;
 };
+
+
+// ================================
+// One booking flow (game / combo / event / loyalty)
+// ================================
+
+export const getBookingOptions = async (kind, id) => {
+  const response = await axiosInstance.get("/auth/user/book/options/", { params: { kind, id } });
+  return response.data;
+};
+
+export const getBookingSlots = async (kind, id, date) => {
+  const response = await axiosInstance.get("/auth/user/book/slots/", { params: { kind, id, date } });
+  return response.data;
+};
+
+export const submitBooking = async (payload) => {
+  const response = await axiosInstance.post("/auth/user/book/", payload);
+  return response.data;
+};

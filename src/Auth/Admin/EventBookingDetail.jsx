@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { adminApi } from "../api/adminapi";
 import AdminLayout from "./AdminLayout";
 
+import { CircleCheck, CircleX, MailCheck, Ticket } from "lucide-react";
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Share+Tech+Mono&display=swap');
 
@@ -250,9 +251,8 @@ export default function EventBookingDetail() {
 
   const loadData = async () => {
     try {
-      const data = await adminApi.getEventBookings(id);
-      const record = Array.isArray(data) ? data[0] ?? null : data;
-      setBooking(record);
+      const data = await adminApi.getEventBookingDetails(id);
+      setBooking(data || null);
     } catch (err) {
       console.error("Failed to load booking detail:", err);
       setBooking(null);
@@ -287,7 +287,7 @@ export default function EventBookingDetail() {
         </button>
 
         <div className="ebd-header">
-          <div className="ebd-icon">🎟</div>
+          <div className="ebd-icon"><Ticket size={22} aria-hidden="true" /></div>
           <div>
             <h2 className="ebd-title">{booking.booking_id}</h2>
             <div className="ebd-tag">// {booking.event_title || "BOOKING DETAIL"}</div>
@@ -328,7 +328,7 @@ export default function EventBookingDetail() {
           <div className="ebd-card">
             <div className="ebd-card-label">Checked In</div>
             <span className={checkedInClass(booking.checked_in)}>
-              {booking.checked_in ? "▶ CHECKED IN" : "✗ NOT CHECKED IN"}
+              {booking.checked_in ? <><CircleCheck className="ico" size="1.05em" aria-hidden="true" /> CHECKED IN</> : <><CircleX className="ico" size="1.05em" aria-hidden="true" /> NOT CHECKED IN</>}
             </span>
           </div>
         </div>
@@ -344,7 +344,7 @@ export default function EventBookingDetail() {
           <div className="ebd-card">
             <div className="ebd-card-label">QR Code Sent</div>
             <div className={`ebd-card-value ${booking.qr_sent ? "ebd-qr-sent-yes" : "ebd-qr-sent-no"}`}>
-              {booking.qr_sent ? "▶ YES — DISPATCHED" : "✗ NOT YET SENT"}
+              {booking.qr_sent ? <><MailCheck className="ico" size="1.05em" aria-hidden="true" /> YES — DISPATCHED</> : <><CircleX className="ico" size="1.05em" aria-hidden="true" /> NOT YET SENT</>}
             </div>
           </div>
         </div>

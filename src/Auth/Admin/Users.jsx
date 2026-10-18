@@ -2,365 +2,321 @@ import { useEffect, useState } from "react";
 import { adminApi } from "../api/adminapi";
 import AdminLayout from "./AdminLayout";
 import UserDetail from "./UserDetail";
+import { showWhatsApp } from "../../utils/whatsapp";
+import { saCss, errorText, fieldErrors, generatePassword } from "./simpleAdminUi";
+import useApi from "../../hooks/useApi";
 
-const css = `
-  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Share+Tech+Mono&display=swap');
+const PAGE_SIZE = 20;
+const EMPTY_FORM = { first_name: "", last_name: "", phone: "", email: "", password: "" };
 
-  :root {
-    --cp-void:    #05050f;
-    --cp-cyan:    #00ffe1;
-    --cp-pink:    #ff006e;
-    --cp-yellow:  #f5ff00;
-    --cp-text:    #e0f8ff;
+function validate(form, isNew) {
+  const errors = {};
+  if (!form.first_name.trim()) errors.first_name = "Name is required.";
+  const phone = form.phone.replace(/[^\d+]/g, "");
+  if (!/^\+?\d{8,15}$/.test(phone)) errors.phone = "Enter a valid mobile number.";
+  if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+    errors.email = "Enter a valid email or leave it empty.";
   }
+  if (isNew && !form.password) errors.password = "Set a password for the user.";
+  if (form.password && form.password.length < 8) errors.password = "Use at least 8 characters.";
+  if (form.password && /^\d+$/.test(form.password)) errors.password = "Password can't be only numbers.";
+  return errors;
+}
 
-  .adm-page-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 16px;
-    margin-bottom: 28px;
-  }
+function UserFormModal({ user, onClose, onSaved }) {
+  const isNew = !user;
+  const [form, setForm] = useState(
+    isNew
+      ? EMPTY_FORM
+      : {
+          first_name: user.first_name || "",
+          last_name: user.last_name || "",
+          phone: user.phone || "",
+          email: user.email || "",
+          password: "",
+        },
+  );
+  const [errors, setErrors] = useState({});
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [showPassword, setShowPassword] = useState(isNew);
 
-  .adm-page-title {
-    font-family: 'Orbitron', monospace;
-    font-size: 1.1rem;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--cp-text);
-    margin: 0;
-    position: relative;
-    padding-left: 16px;
-  }
+  const set = (key) => (e) => setForm((p) => ({ ...p, [key]: e.target.value }));
 
-  .adm-page-title::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 4px;
-    height: 70%;
-    background: var(--cp-cyan);
-    box-shadow: 0 0 8px var(--cp-cyan);
-  }
+  const submit = async (e) => {
+    e.preventDefault();
+    const found = validate(form, isNew);
+    setErrors(found);
+    setError("");
+    if (Object.keys(found).length) return;
 
-  .adm-search {
-    background: rgba(0,255,225,0.04);
-    border: 1px solid rgba(0,255,225,0.25);
-    border-radius: 6px;
-    padding: 10px 14px;
-    color: var(--cp-text);
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.72rem;
-    letter-spacing: 0.04em;
-    min-width: 240px;
-    outline: none;
-    transition: border-color 0.2s, box-shadow 0.2s;
-  }
+    const payload = {
+      first_name: form.first_name.trim(),
+      last_name: form.last_name.trim(),
+      phone: form.phone.replace(/[^\d+]/g, ""),
+      email: form.email.trim().toLowerCase() || null,
+    };
+    if (form.password) payload.password = form.password;
 
-  .adm-search::placeholder { color: rgba(224,248,255,0.3); }
-
-  .adm-search:focus {
-    border-color: var(--cp-cyan);
-    box-shadow: 0 0 0 3px rgba(0,255,225,0.08);
-  }
-
-  .adm-panel {
-    background: rgba(8,8,20,0.7);
-    border: 1px solid rgba(0,255,225,0.12);
-    border-radius: 10px;
-    overflow: hidden;
-    backdrop-filter: blur(12px);
-  }
-
-  .adm-loading {
-    font-family: 'Share Tech Mono', monospace;
-    color: rgba(0,255,225,0.6);
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    font-size: 0.75rem;
-    padding: 50px;
-    text-align: center;
-  }
-
-  .adm-table-wrap { overflow-x: auto; }
-
-  .adm-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.7rem;
-  }
-
-  .adm-table thead th {
-    text-align: left;
-    padding: 14px 18px;
-    color: rgba(0,255,225,0.6);
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    font-weight: 600;
-    font-size: 0.62rem;
-    border-bottom: 1px solid rgba(0,255,225,0.18);
-    background: rgba(0,255,225,0.03);
-    white-space: nowrap;
-  }
-
-  .adm-table tbody td {
-    padding: 14px 18px;
-    color: var(--cp-text);
-    border-bottom: 1px solid rgba(0,255,225,0.06);
-    vertical-align: middle;
-  }
-
-  .adm-table tbody tr { transition: background 0.15s; }
-  .adm-table tbody tr:last-child td { border-bottom: none; }
-  .adm-table tbody tr:hover { background: rgba(0,255,225,0.035); }
-
-  .adm-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 10px;
-    border-radius: 20px;
-    font-size: 0.58rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    border: 1px solid;
-    white-space: nowrap;
-  }
-
-  .adm-badge::before {
-    content: '';
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background: currentColor;
-    box-shadow: 0 0 5px currentColor;
-    flex-shrink: 0;
-  }
-
-  .adm-badge.ok {
-    color: var(--cp-cyan);
-    border-color: rgba(0,255,225,0.4);
-    background: rgba(0,255,225,0.06);
-  }
-
-  .adm-badge.danger {
-    color: var(--cp-pink);
-    border-color: rgba(255,0,110,0.4);
-    background: rgba(255,0,110,0.06);
-  }
-
-  .adm-badge.off {
-    color: rgba(224,248,255,0.4);
-    border-color: rgba(224,248,255,0.15);
-    background: rgba(224,248,255,0.03);
-  }
-
-  .adm-actions {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-
-  .adm-btn {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.6rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    padding: 7px 12px;
-    border-radius: 5px;
-    border: 1px solid;
-    background: transparent;
-    cursor: pointer;
-    transition: background 0.15s, box-shadow 0.15s;
-  }
-
-  .adm-btn.cyan { color: var(--cp-cyan); border-color: rgba(0,255,225,0.4); }
-  .adm-btn.cyan:hover { background: rgba(0,255,225,0.08); box-shadow: 0 0 10px rgba(0,255,225,0.2); }
-
-  .adm-btn.yellow { color: var(--cp-yellow); border-color: rgba(245,255,0,0.35); }
-  .adm-btn.yellow:hover { background: rgba(245,255,0,0.07); box-shadow: 0 0 10px rgba(245,255,0,0.15); }
-
-  .adm-btn.pink { color: var(--cp-pink); border-color: rgba(255,0,110,0.4); }
-  .adm-btn.pink:hover { background: rgba(255,0,110,0.08); box-shadow: 0 0 10px rgba(255,0,110,0.2); }
-
-  @media (max-width: 640px) {
-    .adm-search { width: 100%; min-width: 0; }
-    .adm-page-head { flex-direction: column; align-items: flex-start; }
-  }
-
-    /* ── Image thumbnail (table/cards) ── */
-  .adm-thumb {
-    width: 40px; height: 40px;
-    object-fit: cover;
-    clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px));
-    border: 1px solid rgba(0,255,225,0.20);
-    display: block;
-    flex-shrink: 0;
-  }
-  .adm-thumb-placeholder {
-    width: 40px; height: 40px;
-    background: rgba(255,255,255,0.03);
-    border: 1px dashed rgba(255,255,255,0.08);
-    clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px));
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: rgba(224,248,255,0.15);
-    font-size: 0.7rem;
-    flex-shrink: 0;
-  }
-`;
-
-export default function Users() {
-  const [users, setUsers] = useState([]);
-  const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [selectedUserId, setSelectedUserId] = useState(null);
-
-  const loadUsers = async () => {
+    setSaving(true);
     try {
-      const data = await adminApi.getAdminUsers({
-        search,
-      });
-
-      setUsers(data);
+      const data = isNew
+        ? await adminApi.createAdminUser(payload)
+        : await adminApi.updateAdminUser(user.id, payload);
+      if (data?.whatsapp_url) {
+        showWhatsApp(
+          data.whatsapp_url,
+          isNew ? `Send login details to ${payload.first_name}` : `Send new password to ${payload.first_name}`,
+        );
+      }
+      onSaved();
     } catch (err) {
-      console.error(err);
+      setErrors(fieldErrors(err));
+      setError(errorText(err, "Could not save the user."));
     } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadUsers();
-  }, []);
-
-  const toggleStatus = async (user) => {
-    try {
-      await adminApi.updateAdminUserStatus(
-        user.id,
-        !user.is_active
-      );
-
-      loadUsers();
-    } catch (err) {
-      alert(err.message);
-    }
-  };
-
-  const deleteUser = async (userId) => {
-    if (!window.confirm("Delete this user?")) {
-      return;
-    }
-
-    try {
-      await adminApi.deleteAdminUser(userId);
-
-      loadUsers();
-    } catch (err) {
-      alert(err.message);
+      setSaving(false);
     }
   };
 
   return (
+    <div className="sa-modal-back" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <form className="sa-modal sa" onSubmit={submit} noValidate>
+        <h3>{isNew ? "Add user" : `Edit ${user.full_name || "user"}`}</h3>
+        {error && <div className="sa-error">{error}</div>}
+
+        <label className="sa-field">
+          <span>Name</span>
+          <input className="sa-input" value={form.first_name} onChange={set("first_name")} maxLength={100} autoFocus />
+          {errors.first_name && <div className="sa-field-err">{errors.first_name}</div>}
+        </label>
+
+        {!isNew && (
+          <label className="sa-field">
+            <span>Last name <em>(optional)</em></span>
+            <input className="sa-input" value={form.last_name} onChange={set("last_name")} maxLength={100} />
+          </label>
+        )}
+
+        <label className="sa-field">
+          <span>Mobile number <em>(WhatsApp)</em></span>
+          <input
+            className="sa-input"
+            type="tel"
+            inputMode="tel"
+            placeholder="98765 43210"
+            value={form.phone}
+            onChange={set("phone")}
+            maxLength={20}
+          />
+          {errors.phone && <div className="sa-field-err">{errors.phone}</div>}
+        </label>
+
+        <label className="sa-field">
+          <span>Email <em>(optional)</em></span>
+          <input className="sa-input" type="email" value={form.email} onChange={set("email")} maxLength={254} />
+          {errors.email && <div className="sa-field-err">{errors.email}</div>}
+        </label>
+
+        <label className="sa-field">
+          <span>{isNew ? "Password" : "New password"} {!isNew && <em>(leave empty to keep the current one)</em>}</span>
+          <div className="sa-inline">
+            <input
+              className="sa-input"
+              type={showPassword ? "text" : "password"}
+              autoComplete="new-password"
+              value={form.password}
+              onChange={set("password")}
+              maxLength={128}
+            />
+            <button type="button" className="sa-btn" onClick={() => setShowPassword((v) => !v)}>
+              {showPassword ? "Hide" : "Show"}
+            </button>
+            <button
+              type="button"
+              className="sa-btn"
+              onClick={() => {
+                setForm((p) => ({ ...p, password: generatePassword() }));
+                setShowPassword(true);
+              }}
+            >
+              Generate
+            </button>
+          </div>
+          {errors.password && <div className="sa-field-err">{errors.password}</div>}
+          <div className="sa-muted" style={{ marginTop: 6 }}>
+            After saving you can send the login details to the user on WhatsApp.
+          </div>
+        </label>
+
+        <div className="sa-modal-foot">
+          <button type="button" className="sa-btn" onClick={onClose} disabled={saving}>Cancel</button>
+          <button type="submit" className="sa-btn primary" disabled={saving}>
+            {saving ? "Saving…" : isNew ? "Add user" : "Save changes"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+export default function Users() {
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const [query, setQuery] = useState("");
+  const [busyId, setBusyId] = useState(null);
+  const [editing, setEditing] = useState(null); // null | "new" | user
+  const [viewingId, setViewingId] = useState(null);
+
+  // Debounce typing → server-side search
+  useEffect(() => {
+    const id = setTimeout(() => {
+      setQuery(search.trim());
+      setPage(1);
+    }, 350);
+    return () => clearTimeout(id);
+  }, [search]);
+
+  const params = { search: query, page, page_size: PAGE_SIZE };
+  const { data, error: loadError, loading, reload: load } = useApi(
+    () => adminApi.getAdminUsers(params),
+    JSON.stringify(params),
+  );
+  const rows = Array.isArray(data) ? data : data?.results || [];
+  const count = Array.isArray(data) ? data.length : data?.count || 0;
+  const error = loadError ? errorText(loadError, "Could not load users.") : "";
+
+  const toggleStatus = async (user) => {
+    const action = user.is_active ? "suspend" : "activate";
+    if (!window.confirm(`Do you want to ${action} ${user.full_name || "this user"}?`)) return;
+    setBusyId(user.id);
+    try {
+      await adminApi.updateAdminUserStatus(user.id, !user.is_active);
+      load();
+    } catch (err) {
+      alert(errorText(err));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const remove = async (user) => {
+    if (!window.confirm(`Delete ${user.full_name || "this user"}? Their booking history is kept.`)) return;
+    setBusyId(user.id);
+    try {
+      await adminApi.deleteAdminUser(user.id);
+      load();
+    } catch (err) {
+      alert(errorText(err));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE));
+
+  return (
     <AdminLayout>
-      <style>{css}</style>
+      <style>{saCss}</style>
+      <div className="sa">
+        <div className="sa-head">
+          <div>
+            <h2 className="sa-title">Users</h2>
+            <p className="sa-sub">{count} customer{count === 1 ? "" : "s"}</p>
+          </div>
+          <button className="sa-btn primary" onClick={() => setEditing("new")}>+ Add user</button>
+        </div>
 
-      <div className="adm-page-head">
-        <h2 className="adm-page-title">Users Management</h2>
+        <div className="sa-toolbar">
+          <input
+            className="sa-input grow"
+            type="search"
+            placeholder="Search name, mobile or email"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            maxLength={100}
+          />
+        </div>
 
-        <input
-          className="adm-search"
-          placeholder="Search users..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </div>
+        {error && <div className="sa-error">{error}</div>}
 
-      {loading ? (
-        <div className="adm-loading">Loading...</div>
-      ) : (
-        <div className="adm-panel">
-          <div className="adm-table-wrap">
-            <table className="adm-table">
+        <div className="sa-panel">
+          <div className="sa-table-wrap">
+            <table className="sa-table">
               <thead>
                 <tr>
-                <th style={{ width: 48 }}>Img</th>
                   <th>Name</th>
-                  <th>Email</th>
-                  <th>Phone</th>
+                  <th>Mobile</th>
+                  <th className="sa-hide-sm">Email</th>
+                  <th className="sa-hide-sm">Points</th>
                   <th>Status</th>
-                  <th>Loyalty</th>
                   <th>Actions</th>
                 </tr>
               </thead>
-
               <tbody>
-                {users.map((user) => (
-                  <tr key={user.id}>
-                    <td>
-                    {user.profile_image
-                              ? <img className="adm-thumb" src={user.profile_image} alt={user.full_name} />
-                              : <div className="adm-thumb-placeholder">✕</div>
-                            }
-                    </td>
-                    <td>{user.full_name}</td>
-                    <td>{user.email}</td>
-                    <td>{user.phone}</td>
-
-                    <td>
-                      {user.is_active ? (
-                        <span className="adm-badge ok">Active</span>
-                      ) : (
-                        <span className="adm-badge danger">Suspended</span>
-                      )}
-                    </td>
-
-                    <td>{user.loyalty_points}</td>
-
-                    <td>
-                      <div className="adm-actions">
-                        <button
-                          className="adm-btn cyan"
-                          onClick={() => setSelectedUserId(user.id)}
-                        >
-                          View
-                        </button>
-
-                        <button
-                          className="adm-btn yellow"
-                          onClick={() => toggleStatus(user)}
-                        >
-                          {user.is_active ? "Suspend" : "Activate"}
-                        </button>
-
-                        <button
-                          className="adm-btn pink"
-                          onClick={() => deleteUser(user.id)}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {loading && rows.length === 0 ? (
+                  <tr><td colSpan={6} className="sa-loading">Loading users…</td></tr>
+                ) : rows.length === 0 ? (
+                  <tr><td colSpan={6} className="sa-empty">{query ? "No users match your search." : "No users yet. Add the first one."}</td></tr>
+                ) : (
+                  rows.map((u) => (
+                    <tr key={u.id}>
+                      <td className="sa-strong">{u.full_name || "—"}</td>
+                      <td>{u.phone || "—"}</td>
+                      <td className="sa-hide-sm">{u.email || <span className="sa-muted">—</span>}</td>
+                      <td className="sa-hide-sm">{u.loyalty_points ?? 0}</td>
+                      <td>
+                        {u.is_locked ? (
+                          <span className="sa-badge locked">Locked</span>
+                        ) : (
+                          <span className={`sa-badge ${u.is_active ? "active" : "suspended"}`}>
+                            {u.is_active ? "Active" : "Suspended"}
+                          </span>
+                        )}
+                      </td>
+                      <td>
+                        <div className="sa-actions">
+                          <button className="sa-btn" onClick={() => setViewingId(u.id)}>View</button>
+                          <button className="sa-btn" onClick={() => setEditing(u)}>Edit</button>
+                          <button
+                            className={`sa-btn ${u.is_active ? "" : "ok"}`}
+                            disabled={busyId === u.id}
+                            onClick={() => toggleStatus(u)}
+                          >
+                            {u.is_active ? "Suspend" : "Activate"}
+                          </button>
+                          <button className="sa-btn danger" disabled={busyId === u.id} onClick={() => remove(u)}>
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
+          {totalPages > 1 && (
+            <div className="sa-pager">
+              <button className="sa-btn" disabled={page <= 1 || loading} onClick={() => setPage((p) => p - 1)}>← Prev</button>
+              <span>Page {page} of {totalPages}</span>
+              <button className="sa-btn" disabled={page >= totalPages || loading} onClick={() => setPage((p) => p + 1)}>Next →</button>
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
-      {selectedUserId && (
-        <UserDetail
-          userId={selectedUserId}
-          onClose={() => setSelectedUserId(null)}
+      {editing && (
+        <UserFormModal
+          user={editing === "new" ? null : editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            load();
+          }}
         />
       )}
+
+      {viewingId && <UserDetail userId={viewingId} onClose={() => setViewingId(null)} />}
     </AdminLayout>
   );
 }

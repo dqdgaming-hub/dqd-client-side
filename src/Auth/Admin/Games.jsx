@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import AdminLayout from "./AdminLayout";
 import { adminCss } from "./adminTheme";
 
+import { ImageOff, TriangleAlert, Upload, X } from "lucide-react";
 function formatMoney(value) {
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
@@ -194,7 +195,7 @@ function EditGamePanel({ game, categories, onSave, onCancel }) {
   return (
     <div className="adm-edit-panel">
       <div className="adm-edit-title">▸ Editing — {game.name}</div>
-      {error && <div className="adm-alert" style={{ marginBottom: 14 }}>⚠ {error}</div>}
+      {error && <div className="adm-alert" style={{ marginBottom: 14 }}><TriangleAlert className="ico" size="1.05em" aria-hidden="true" /> {error}</div>}
       <form onSubmit={submit}>
         <div className="adm-form-grid">
 
@@ -241,7 +242,7 @@ function EditGamePanel({ game, categories, onSave, onCancel }) {
               <div className="adm-image-preview">
                 <img src={imagePreview} alt="Preview" />
                 <button type="button" className="adm-image-preview-remove" onClick={removeImage}>
-                  ✕ Remove
+                  <X className="ico" size="1.05em" aria-hidden="true" /> Remove
                 </button>
               </div>
             ) : (
@@ -253,7 +254,7 @@ function EditGamePanel({ game, categories, onSave, onCancel }) {
                   style={{ display: "none" }}
                   onChange={(e) => applyImage(e.target.files[0])}
                 />
-                <div className="adm-image-drop-text">⬆ Click to upload image</div>
+                <div className="adm-image-drop-text"><Upload className="ico" size="1.05em" aria-hidden="true" /> Click to upload image</div>
               </div>
             )}
           </div>
@@ -345,7 +346,7 @@ export default function Games() {
             <Link className="adm-btn-ghost" to="/admin/games/add">+ Add Game</Link>
           </section>
 
-          {error && <div className="adm-alert">⚠ {error}</div>}
+          {error && <div className="adm-alert"><TriangleAlert className="ico" size="1.05em" aria-hidden="true" /> {error}</div>}
 
           <article className="adm-panel">
             <div className="adm-panel-head">
@@ -392,7 +393,7 @@ export default function Games() {
                           <td>
                             {game.image
                               ? <img className="adm-thumb" src={game.image} alt={game.name} />
-                              : <div className="adm-thumb-placeholder">✕</div>
+                              : <div className="adm-thumb-placeholder"><ImageOff size={18} aria-hidden="true" /></div>
                             }
                           </td>
                           <td style={{ color: "rgba(224,248,255,0.85)", fontFamily: "'Share Tech Mono', monospace" }}>
@@ -465,7 +466,7 @@ export default function Games() {
                     <div className="adm-item-row" style={{ flexWrap: "wrap", gap: 10 }}>
                       {game.image
                         ? <img className="adm-thumb" src={game.image} alt={game.name} />
-                        : <div className="adm-thumb-placeholder">✕</div>
+                        : <div className="adm-thumb-placeholder"><ImageOff size={18} aria-hidden="true" /></div>
                       }
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div className="adm-item-name">{game.name}</div>

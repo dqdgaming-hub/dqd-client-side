@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import AdminLayout from "./AdminLayout";
 import { adminApi } from "../api/adminapi";
 
+import { Check, CircleAlert } from "lucide-react";
 const neon = { cyan: "#00f5ff", pink: "#ff2d78", yellow: "#ffe600",  card: "#0d0d1a" };
 
 const styles = `
@@ -130,8 +131,8 @@ const styles = `
     background: ${neon.yellow}22; border-color: ${neon.yellow}88;
   }
   .ahs-checkbox:checked::after {
-    content: '✓'; position: absolute; top: 50%; left: 50%;
-    transform: translate(-50%, -50%); color: ${neon.yellow}; font-size: 11px;
+    content: ''; position: absolute; top: 45%; left: 50%; width: 5px; height: 9px;
+    border: solid ${neon.yellow}; border-width: 0 2px 2px 0; transform: translate(-50%, -50%) rotate(45deg);
   }
   .ahs-check-label { font-size: 0.75rem; color: #8a8aaa; letter-spacing: 0.08em; }
 
@@ -242,7 +243,7 @@ export default function AddHappyHourSlot() {
           <form onSubmit={submit} className="ahs-body">
             {status && (
               <div className={`ahs-banner ${status.type}`}>
-                <span>{status.type === "success" ? "✓" : "!"}</span>
+                <span>{status.type === "success" ? <Check size={14} aria-hidden="true" /> : <CircleAlert size={14} aria-hidden="true" />}</span>
                 <span>{status.message}</span>
               </div>
             )}

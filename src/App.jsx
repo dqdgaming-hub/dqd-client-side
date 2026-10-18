@@ -4,6 +4,8 @@ import Navbar from './components/Navbar'
 import PageLoader from './Loader/PageLoader'
 import LoaderErrorBoundary from './Loader/LoaderErrorBoundary'
 import useNetworkStatus from './hooks/useNetworkStatus'
+import { API_BASE_URL } from './api/config'
+import WhatsAppPrompt from './components/WhatsAppPrompt'
 import PrivateRoute from './Auth/User/Privateroute'
 import AdminRoute from './Auth/Admin/AdminRoute'
 import './App.css'
@@ -31,20 +33,14 @@ const UserDashboard = lazy(() => import('./Auth/User/UserDashboard'))
 const UserProfileSettings = lazy(() => import('./Auth/User/UserProfileSettings'))
 const GameItems = lazy(() => import('./Auth/User/Games/pages/GameItems'))
 const GameDetails = lazy(() => import('./Auth/User/Games/pages/GameDetails'))
-const CreateBooking = lazy(() => import('./Auth/User/Games/pages/CreateBooking'))
+const BookingFlow = lazy(() => import('./Auth/User/Booking/BookingFlow'))
 const UserBookings = lazy(() => import('./Auth/User/Bookings/user/Bookings'))
 const BookingDetails = lazy(() => import('./Auth/User/Games/pages/BookingDetails'))
-const BookingHistory = lazy(() => import('./Auth/User/Games/pages/BookingHistory'))
-const MyBookings = lazy(() => import('./Auth/User/Games/pages/MyBookings'))
 const Streaming = lazy(() => import('./Auth/User/Streaming/Streaming'))
 const UserEvents = lazy(() => import('./Auth/User/Events/Events'))
-const UserEventsMyBookings = lazy(() => import('./Auth/User/Events/MyBookings'))
 const LoyaltySlotRedeemer = lazy(() => import('./Auth/User/Loyalty/LoyaltySlotRedeemer'))
 
 const UserComboPacks = lazy(() => import('./Auth/User/Combos/ComboPacks'))
-const MyComboBookings = lazy(() => import('./Auth/User/Combos/MyComboBookings'))
-const UpcomingComboBookings = lazy(() => import('./Auth/User/Combos/UpcomingComboBookings'))
-const PreviousComboBookings = lazy(() => import('./Auth/User/Combos/PreviousComboBookings'))
 
 // Admin Core
 const AdminDashboard = lazy(() => import('./Auth/Admin/AdminDashboard'))
@@ -112,7 +108,7 @@ function App() {
   // Point this at a lightweight health-check endpoint on your Django backend,
   // e.g. GET /health/ returning {"status": "ok"}.
   const { isOffline } = useNetworkStatus({
-    pingUrl: `${import.meta.env.VITE_API_BASE_URL}/health/`,
+    pingUrl: `${API_BASE_URL}/auth/health/`,
     pingInterval: 15000,
     pingTimeout: 5000,
   })
@@ -141,25 +137,28 @@ function App() {
 
             <Route path="/sign-in" element={<AuthForm />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/user/dashboard" element={<UserDashboard />} />
-            <Route path="/user/profile-settings" element={<UserProfileSettings />} />
+            <Route path="/user/dashboard" element={<PrivateRoute><UserDashboard /></PrivateRoute>} />
+            <Route path="/user/profile-settings" element={<PrivateRoute><UserProfileSettings /></PrivateRoute>} />
 
             <Route path="/user/game-items" element={<PrivateRoute><GameItems /></PrivateRoute>} />
             <Route path="/user/games/:id" element={<PrivateRoute><GameDetails /></PrivateRoute>} />
-            <Route path="/user/games/:id/book" element={<PrivateRoute><CreateBooking /></PrivateRoute>} />
+            {/* One booking flow for games, combos, events and loyalty points */}
+            <Route path="/user/book/:kind/:id" element={<PrivateRoute><BookingFlow /></PrivateRoute>} />
+            <Route path="/user/games/:id/book" element={<PrivateRoute><BookingFlow kind="game" /></PrivateRoute>} />
             <Route path="/user/new-bookings" element={<PrivateRoute><UserBookings /></PrivateRoute>} />
+            <Route path="/user/bookings" element={<PrivateRoute><UserBookings /></PrivateRoute>} />
+            {/* Old per-type booking lists → one "My bookings" page */}
+            {['/user/my-bookings', '/user/booking-history', '/user/my-event-bookings',
+              '/user/combo-bookings', '/user/combo-bookings/upcoming', '/user/combo-bookings/previous',
+            ].map((path) => (
+              <Route key={path} path={path} element={<Navigate to="/user/bookings" replace />} />
+            ))}
             <Route path="/user/bookings/:id" element={<PrivateRoute><BookingDetails /></PrivateRoute>} />
-            <Route path="/user/booking-history" element={<PrivateRoute><BookingHistory /></PrivateRoute>} />
-            <Route path="/user/my-bookings" element={<PrivateRoute><MyBookings /></PrivateRoute>} />
             <Route path="/user/streamings" element={<PrivateRoute><Streaming /></PrivateRoute>} />
             <Route path="/user/events" element={<PrivateRoute><UserEvents /></PrivateRoute>} />
-            <Route path="/user/my-event-bookings" element={<PrivateRoute><UserEventsMyBookings /></PrivateRoute>} />
             <Route path="/user/claim-points" element={<PrivateRoute><LoyaltySlotRedeemer /></PrivateRoute>} />
 
             <Route path="/user/combo" element={<PrivateRoute><UserComboPacks /></PrivateRoute>} />
-            <Route path="/user/combo-bookings" element={<PrivateRoute><MyComboBookings /></PrivateRoute>} />
-            <Route path="/user/combo-bookings/upcoming" element={<PrivateRoute><UpcomingComboBookings /></PrivateRoute>} />
-            <Route path="/user/combo-bookings/previous" element={<PrivateRoute><PreviousComboBookings /></PrivateRoute>} />
 
             <Route element={<AdminRoute />}>
               <Route path="/admin/dashboard" element={<AdminDashboard />} />
@@ -215,6 +214,7 @@ function App() {
           </Routes>
         </Suspense>
       </LoaderErrorBoundary>
+      <WhatsAppPrompt />
     </BrowserRouter>
   )
 }

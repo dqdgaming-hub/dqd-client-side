@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { adminApi } from "../api/adminapi";
+import { showWhatsApp } from "../../utils/whatsapp";
 import AdminLayout from "./AdminLayout";
 
+import { Ticket } from "lucide-react";
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Share+Tech+Mono&display=swap');
 
@@ -248,8 +250,20 @@ export default function EventBookings() {
 
   useEffect(() => { loadBookings(); }, []);
 
-  const approveBooking = async (id) => { await adminApi.approveEventBooking(id); loadBookings(); };
-  const rejectBooking  = async (id) => { await adminApi.rejectEventBooking(id);  loadBookings(); };
+  const approveBooking = async (id) => {
+    try {
+      const result = await adminApi.approveEventBooking(id);
+      showWhatsApp(result?.whatsapp_url, "Send event confirmation");
+    } catch (err) { alert(err.message || "Could not approve the booking."); }
+    loadBookings();
+  };
+  const rejectBooking = async (id) => {
+    if (!window.confirm("Reject this event booking?")) return;
+    try {
+      await adminApi.rejectEventBooking(id);
+    } catch (err) { alert(err.message || "Could not reject the booking."); }
+    loadBookings();
+  };
 
   return (
     <AdminLayout>
@@ -258,7 +272,7 @@ export default function EventBookings() {
 
         <div className="ebl-topbar">
           <div className="ebl-title-group">
-            <div className="ebl-icon">🎟</div>
+            <div className="ebl-icon"><Ticket size={22} aria-hidden="true" /></div>
             <div>
               <h2 className="ebl-title">Event Bookings</h2>
               <div className="ebl-count">

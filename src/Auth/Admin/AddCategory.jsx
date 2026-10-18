@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import AdminLayout from "./AdminLayout";
 import { adminCss } from "./adminTheme";
 
+import { TriangleAlert, Upload, X } from "lucide-react";
 const CATEGORY_TYPE_OPTIONS = [
   { value: "ps5",  label: "PS5",  desc: "PlayStation 5 gaming sessions",  color: "#00ffe1" },
   { value: "simulator", label: "Simulator", desc: "Simulated gaming experiences", color: "#ff9f1c" },
@@ -211,7 +212,7 @@ export default function AddCategory() {
             </button>
           </section>
 
-          {error && <div className="adm-alert">⚠ {error}</div>}
+          {error && <div className="adm-alert"><TriangleAlert className="ico" size="1.05em" aria-hidden="true" /> {error}</div>}
 
           {/* ── Form panel ── */}
           <article className="adm-panel">
@@ -272,7 +273,7 @@ export default function AddCategory() {
                       <div className="adm-image-preview">
                         <img src={imagePreview} alt="Preview" />
                         <button type="button" className="adm-image-preview-remove" onClick={removeImage}>
-                          ✕ Remove
+                          <X className="ico" size="1.05em" aria-hidden="true" /> Remove
                         </button>
                       </div>
                     ) : (
@@ -284,7 +285,7 @@ export default function AddCategory() {
                           style={{ display: "none" }}
                           onChange={(e) => applyImage(e.target.files[0])}
                         />
-                        <div className="adm-image-drop-text">⬆ Click to upload image</div>
+                        <div className="adm-image-drop-text"><Upload className="ico" size="1.05em" aria-hidden="true" /> Click to upload image</div>
                       </div>
                     )}
                   </div>

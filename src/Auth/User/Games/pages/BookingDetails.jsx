@@ -1,299 +1,248 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import {
+  ArrowLeft, BadgeCheck, CalendarDays, CircleDollarSign, Clock, Crown, Gamepad2, Hash, Lock, NotebookPen, Play, QrCode,
+  RotateCcw, Square, Star, Timer, UserCheck, Users,
+} from "lucide-react";
 
-import UserLayout from "../../Userlayout";
+import UserLayout from "../../UserLayout";
 import { getBookingDetails } from "../../../api/userapi";
+import { apiError, money, niceDate, niceTime, userCss } from "../../common/userUi";
+import { resolveImage } from "../../../../components/home/homeStyles";
 
-import BookingHero         from "../booking/BookingHero";
-import BookingInfo         from "../booking/BookingInfo";
-import BookingMembersCard  from "../booking/BookingMembersCard";
-import BookingPaymentCard  from "../booking/BookingPaymentCard";
-import BookingQRCodeCard   from "../booking/BookingQRCodeCard";
-import BookingApprovalCard from "../booking/BookingApprovalCard";
-import BookingNotesCard    from "../booking/BookingNotesCard";
+const css = `
+.bd-hero { position: relative; overflow: hidden; padding: 0; }
+.bd-hero::before { display: none; }
+.bd-media { position: relative; height: clamp(160px, 28vw, 260px); background: radial-gradient(circle at 50% 40%, #1a1636, #0a0a14);
+  display: grid; place-items: center; color: var(--u-cyan); }
+.bd-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.bd-media::after { content: ""; position: absolute; inset: 0; background: linear-gradient(0deg, #0d0d1a 4%, rgba(13,13,26,.35) 45%, transparent 75%); }
+.bd-hero-body { position: relative; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 14px; padding: 0 18px 18px; margin-top: -48px; z-index: 1; }
+.bd-kicker { display: inline-block; margin-bottom: 6px; font: 700 11px/1 'Share Tech Mono', monospace; letter-spacing: 1.6px; text-transform: uppercase; color: var(--u-cyan); }
+.bd-hero h1 { margin: 0 0 10px; font: 900 clamp(20px, 4vw, 30px)/1.15 'Orbitron', sans-serif; letter-spacing: .5px; color: #fff; overflow-wrap: anywhere; }
+.bd-id { display: grid; gap: 4px; justify-items: end; text-align: right; }
+.bd-id span { font: 700 10.5px/1 'Share Tech Mono', monospace; letter-spacing: 1.4px; text-transform: uppercase; color: var(--u-muted); }
+.bd-id b { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 10px; font: 700 14px/1 'Share Tech Mono', monospace;
+  letter-spacing: 1px; color: #fff; background: rgba(0,245,255,.08); border: 1px solid rgba(0,245,255,.3); overflow-wrap: anywhere; }
+.bd-id b svg { color: var(--u-cyan); }
+.bd-grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: 18px; }
+.bd-grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+.u-card h2 { display: flex; align-items: center; gap: 8px; }
+.u-card h2 svg { color: var(--u-cyan); flex: none; }
+.bd-rows dt { display: inline-flex; align-items: center; gap: 8px; }
+.bd-rows dt svg { color: var(--u-cyan); flex: none; }
+.bd-members { display: grid; gap: 10px; }
+.bd-member { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.bd-av { width: 36px; height: 36px; flex: none; display: grid; place-items: center; border-radius: 50%; font: 700 12px/1 'Orbitron', sans-serif;
+  color: #05040a; background: linear-gradient(135deg, var(--u-cyan), #7b2fff); }
+.bd-member.host .bd-av { background: linear-gradient(135deg, var(--u-yellow), #ff9f1c); }
+.bd-member div { min-width: 0; flex: 1; }
+.bd-member strong { display: block; color: #fff; font-size: 14.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bd-member small { color: var(--u-muted); font-size: 12.5px; }
+.bd-qr { display: grid; justify-items: center; gap: 10px; text-align: center; }
+.bd-qr img { width: 100%; max-width: 160px; height: auto; padding: 8px; border-radius: 12px; background: #fff; }
+.bd-token { font: 700 11.5px/1.5 'Share Tech Mono', monospace; color: var(--u-muted); word-break: break-all; }
+.bd-locked { display: grid; justify-items: center; gap: 10px; padding: 14px 0; text-align: center; color: var(--u-muted); font-size: 14px; line-height: 1.5; }
+.bd-locked span { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 14px; color: var(--u-yellow);
+  background: rgba(255,214,10,.08); border: 1px solid rgba(255,214,10,.28); }
+.bd-notes { margin: 0; color: #c4c4dc; font-size: 14.5px; line-height: 1.65; white-space: pre-wrap; }
+.bd-notes.empty { color: var(--u-muted); font-style: italic; }
+.bd-skel { height: 200px; border-radius: 14px; background: linear-gradient(110deg, #0d0d1a 30%, #1a1838 50%, #0d0d1a 70%); background-size: 200% 100%;
+  animation: uShine 1.4s linear infinite; }
+.bd-skel.tall { height: 300px; }
+@media (max-width: 860px) {
+  .bd-grid { grid-template-columns: 1fr; }
+  .bd-grid3 { grid-template-columns: 1fr 1fr; }
+  .bd-grid3 > :last-child { grid-column: 1 / -1; }
+}
+@media (max-width: 560px) {
+  .bd-grid3 { grid-template-columns: 1fr; }
+  .bd-id { justify-items: start; text-align: left; }
+}
+`;
 
-// ── Design tokens ─────────────────────────────────────────────────────────────
-const VOID   = "#05040A";
-const PANEL  = "#0D0A18";
-const PURPLE = "#7A2CFF";
-const SILVER = "#B9C2D9";
-const GOLD   = "#D4AF37";
-const GOLDHI = "#F4D886";
-const BORDER = "rgba(122,44,255,0.22)";
+const BOOKING_TAG = { pending: "warn", confirmed: "ok", completed: "", cancelled: "bad" };
+const PAY_TAG = { paid: "ok", pending: "warn", failed: "bad", refunded: "" };
 
-// ── Back icon ─────────────────────────────────────────────────────────────────
-const BackIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-    <path d="M14.5 5 8 12l6.5 7" stroke={GOLD} strokeWidth="2.2"
-      strokeLinecap="round" strokeLinejoin="round"/>
-  </svg>
-);
+const show = (v) => (v === null || v === undefined || v === "" ? "—" : v);
+const initials = (name = "") => name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
 
-// ── Skeleton card ─────────────────────────────────────────────────────────────
-function SkeletonBlock({ h = 180, delay = 0 }) {
-  const shimmer = `linear-gradient(90deg, ${PANEL} 25%, #1a1232 50%, ${PANEL} 75%)`;
+function Skeleton() {
   return (
-    <div style={{
-      background: PANEL, border: `1px solid ${BORDER}`,
-      clipPath: "polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%)",
-      overflow: "hidden", height: h,
-    }}>
-      <motion.div
-        animate={{ backgroundPosition: ["200% 0", "-200% 0"] }}
-        transition={{ duration: 1.5, repeat: Infinity, ease: "linear", delay }}
-        style={{ height: "100%", background: shimmer, backgroundSize: "400% 100%" }}
-      />
+    <div className="u-stack" aria-label="Loading">
+      <div className="bd-skel tall" />
+      <div className="bd-grid"><div className="bd-skel" /><div className="bd-skel" /></div>
+      <div className="bd-grid3"><div className="bd-skel" /><div className="bd-skel" /><div className="bd-skel" /></div>
     </div>
   );
 }
 
-function LoadingSkeleton() {
-  return (
-    <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 16 }}>
-      <SkeletonBlock h={300} delay={0}/>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16 }}>
-        <SkeletonBlock h={260} delay={0.08}/>
-        <SkeletonBlock h={260} delay={0.12}/>
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16 }}>
-        <SkeletonBlock h={200} delay={0.16}/>
-        <SkeletonBlock h={200} delay={0.2}/>
-        <SkeletonBlock h={200} delay={0.24}/>
-      </div>
-      <SkeletonBlock h={100} delay={0.28}/>
-    </div>
-  );
-}
-
-// ── Floating particle ─────────────────────────────────────────────────────────
-function Particle({ style, dur, delay }) {
-  return (
-    <motion.div
-      style={{ position: "absolute", borderRadius: "50%", pointerEvents: "none", ...style }}
-      animate={{ y: [0, -28, 0], opacity: [style.opacity * 0.4, style.opacity, style.opacity * 0.4] }}
-      transition={{ duration: dur, repeat: Infinity, ease: "easeInOut", delay }}
-    />
-  );
-}
-
-// ── Stagger variants ──────────────────────────────────────────────────────────
-const containerVariants = {
-  hidden:  {},
-  visible: { transition: { staggerChildren: 0.08, delayChildren: 0.04 } },
-};
-const itemVariants = {
-  hidden:  { opacity: 0, y: 24 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] } },
-};
-
-// ── Main ──────────────────────────────────────────────────────────────────────
 export default function BookingDetails() {
-  const { id }   = useParams();
+  const { id } = useParams();
   const navigate = useNavigate();
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  useEffect(() => { loadBooking(); }, []);
-
-  const loadBooking = async () => {
+  const loadBooking = useCallback(async () => {
     setLoading(true);
+    setError("");
     try {
       const res = await getBookingDetails(id);
       setBooking(res.data);
+    } catch (err) {
+      setError(apiError(err, "Couldn't load this booking."));
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
 
-  const particles = [
-    { w: 5,  l: "8%",  t: "12%", c: GOLD,   o: 0.35, dur: 4.2, d: 0    },
-    { w: 4,  l: "22%", t: "55%", c: PURPLE, o: 0.45, dur: 3.6, d: 0.7  },
-    { w: 6,  l: "72%", t: "18%", c: GOLD,   o: 0.3,  dur: 5.1, d: 1.2  },
-    { w: 3,  l: "88%", t: "68%", c: PURPLE, o: 0.5,  dur: 3.9, d: 0.4  },
-    { w: 5,  l: "44%", t: "80%", c: GOLD,   o: 0.28, dur: 4.6, d: 1.9  },
-    { w: 4,  l: "60%", t: "38%", c: PURPLE, o: 0.38, dur: 3.3, d: 0.9  },
-    { w: 3,  l: "16%", t: "82%", c: GOLD,   o: 0.32, dur: 5.4, d: 2.3  },
-    { w: 5,  l: "92%", t: "30%", c: PURPLE, o: 0.42, dur: 4.0, d: 0.6  },
+  useEffect(() => { loadBooking(); }, [loadBooking]);
+
+  const b = booking || {};
+  const members = b.members || [];
+  const status = b.status || "pending";
+  const payStatus = b.payment_status || "pending";
+  const approved = !!b.approved_by_name;
+  const img = resolveImage(b.game?.image);
+
+  const info = [
+    { icon: CalendarDays, label: "Date", value: b.booking_date ? niceDate(b.booking_date) : null },
+    { icon: Play, label: "Start", value: b.start_time ? niceTime(b.start_time) : null },
+    { icon: Square, label: "End", value: b.end_time ? niceTime(b.end_time) : null },
+    { icon: Timer, label: "Hours", value: b.total_hours },
+    { icon: Users, label: "Players", value: b.total_people },
+    { icon: Star, label: "Loyalty", value: b.awarded_loyalty_points },
   ];
 
   return (
     <UserLayout>
-      <>
-        <style>{`
-          @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Rajdhani:wght@400;600;700&family=Share+Tech+Mono&display=swap');
-
-          *, *::before, *::after { box-sizing: border-box; }
-
-          .bd-page { font-family: 'Inter', 'Segoe UI', sans-serif; }
-
-          /* ── Row layouts ── */
-          .bd-row2 {
-            display: grid;
-            grid-template-columns: 1.15fr 1fr;
-            gap: 16px;
-          }
-          .bd-row3 {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 16px;
-          }
-
-          /* ── Tablet: row3 becomes 2+1 */
-          @media (max-width: 860px) {
-            .bd-row2  { grid-template-columns: 1fr !important; }
-            .bd-row3  { grid-template-columns: 1fr 1fr !important; }
-          }
-
-          /* ── Mobile: everything stacks ── */
-          @media (max-width: 560px) {
-            .bd-row3 { grid-template-columns: 1fr !important; }
-            .bd-page { padding: 14px 12px 72px !important; }
-          }
-
-          /* ── Back button ── */
-          .bd-back { transition: background 0.2s, border-color 0.2s, color 0.2s; }
-          .bd-back:hover {
-            background:   rgba(212,175,55,0.1) !important;
-            border-color: ${GOLD}88 !important;
-            color:        ${GOLDHI} !important;
-          }
-          .bd-back:hover .bd-arrow { transform: translateX(-3px); }
-          .bd-arrow { transition: transform 0.2s ease; display: inline-flex; }
-
-          /* ── Card equal-height rows ── */
-          .bd-row2 > *, .bd-row3 > * { min-height: 0; }
-        `}</style>
-
-        <div
-          className="bd-page"
-          style={{
-            minHeight:      "100vh",
-            background:     VOID,
-            position:       "relative",
-            overflow:       "hidden",
-            padding:        "clamp(16px, 3vw, 32px) clamp(12px, 4vw, 28px) 80px",
-            display:        "flex",
-            flexDirection:  "column",
-            alignItems:     "center",
-          }}
-        >
-          {/* ── Ambient orbs ── */}
-          <div style={{
-            position: "absolute", top: "-8%", left: "-5%",
-            width: "min(500px, 80vw)", height: "min(500px, 80vw)", borderRadius: "50%",
-            background: `radial-gradient(circle, ${PURPLE}16 0%, transparent 70%)`,
-            filter: "blur(70px)", pointerEvents: "none",
-          }}/>
-          <div style={{
-            position: "absolute", bottom: "4%", right: "-4%",
-            width: "min(400px, 66vw)", height: "min(400px, 66vw)", borderRadius: "50%",
-            background: `radial-gradient(circle, ${GOLD}0D 0%, transparent 70%)`,
-            filter: "blur(70px)", pointerEvents: "none",
-          }}/>
-          <div style={{
-            position: "absolute", inset: 0, pointerEvents: "none",
-            background: `radial-gradient(ellipse at 50% 0%, transparent 55%, ${VOID}cc 100%)`,
-          }}/>
-
-          {/* ── Particles ── */}
-          {particles.map((p, i) => (
-            <Particle key={i} dur={p.dur} delay={p.d} style={{
-              width:      p.w, height: p.w,
-              left:       p.l, top:    p.t,
-              background: p.c,
-              opacity:    p.o,
-              boxShadow:  `0 0 8px ${p.c}`,
-            }}/>
-          ))}
-
-          {/* ── Hex-dot grid overlay ── */}
-          <div style={{
-            position: "absolute", inset: 0, pointerEvents: "none", opacity: 0.035,
-            backgroundImage: `radial-gradient(circle, ${SILVER} 1px, transparent 1px)`,
-            backgroundSize:  "28px 28px",
-          }}/>
-
-          {/* ── Content column ── */}
-          <div style={{ width: "100%", maxWidth: 940, position: "relative", zIndex: 2 }}>
-
-            {/* ── Back button ── */}
-            <motion.button
-              className="bd-back"
-              onClick={() => navigate(-1)}
-              initial={{ opacity: 0, x: -14 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-              style={{
-                display:       "inline-flex",
-                alignItems:    "center",
-                gap:           7,
-                marginBottom:  22,
-                padding:       "8px 18px 8px 12px",
-                background:    "rgba(122,44,255,0.07)",
-                border:        `1px solid ${BORDER}`,
-                clipPath:      "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)",
-                cursor:        "pointer",
-                fontFamily:    "'Orbitron', monospace",
-                fontSize:      9,
-                fontWeight:    700,
-                letterSpacing: "0.22em",
-                color:         `${GOLD}cc`,
-                textTransform: "uppercase",
-                outline:       "none",
-              }}
-            >
-              <span className="bd-arrow"><BackIcon/></span>
-              Back
-            </motion.button>
-
-            {/* ── Page content ── */}
-            <AnimatePresence mode="wait">
-              {loading ? (
-                <motion.div
-                  key="skeleton"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0, transition: { duration: 0.2 } }}
-                >
-                  <LoadingSkeleton/>
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="content"
-                  initial="hidden"
-                  animate="visible"
-                  variants={containerVariants}
-                  style={{ display: "flex", flexDirection: "column", gap: 16 }}
-                >
-                  {/* Row 1: Hero — full width */}
-                  <motion.div variants={itemVariants}>
-                    <BookingHero booking={booking}/>
-                  </motion.div>
-
-                  {/* Row 2: Info | Payment */}
-                  <motion.div variants={itemVariants} className="bd-row2">
-                    <BookingInfo        booking={booking}/>
-                    <BookingPaymentCard booking={booking}/>
-                  </motion.div>
-
-                  {/* Row 3: Members | QR | Approval */}
-                  <motion.div variants={itemVariants} className="bd-row3">
-                    <BookingMembersCard  booking={booking}/>
-                    <BookingQRCodeCard   booking={booking}/>
-                    <BookingApprovalCard booking={booking}/>
-                  </motion.div>
-
-                  {/* Row 4: Notes — full width */}
-                  <motion.div variants={itemVariants}>
-                    <BookingNotesCard booking={booking}/>
-                  </motion.div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+      <style>{userCss + css}</style>
+      <div className="u-page">
+        <div>
+          <button type="button" className="u-back" onClick={() => navigate(-1)}>
+            <ArrowLeft size={15} aria-hidden="true" /> Back
+          </button>
         </div>
-      </>
+
+        {loading ? (
+          <Skeleton />
+        ) : error || !booking ? (
+          <div className="u-error" role="alert">
+            {error || "Couldn't load this booking."}
+            <button type="button" className="u-btn sm" onClick={loadBooking}><RotateCcw size={14} aria-hidden="true" /> Try again</button>
+          </div>
+        ) : (
+          <div className="u-stack">
+            <section className="u-card bd-hero">
+              <div className="bd-media">
+                {img ? <img src={img} alt={b.game?.name || ""} /> : <Gamepad2 size={48} aria-hidden="true" />}
+              </div>
+              <div className="bd-hero-body">
+                <div style={{ minWidth: 0 }}>
+                  <span className="bd-kicker">Booking details</span>
+                  <h1>{show(b.game?.name)}</h1>
+                  <span className={`u-tag ${BOOKING_TAG[status] ?? "warn"}`}>{status.toUpperCase()}</span>
+                </div>
+                <div className="bd-id">
+                  <span>Booking ID</span>
+                  <b><Hash size={14} aria-hidden="true" />{show(b.booking_id)}</b>
+                </div>
+              </div>
+            </section>
+
+            <div className="bd-grid">
+              <section className="u-card">
+                <h2><CalendarDays size={16} aria-hidden="true" /> Booking info</h2>
+                <dl className="u-summary bd-rows" style={{ margin: 0 }}>
+                  {info.map(({ icon: Icon, label, value }) => (
+                    <div key={label}>
+                      <dt><Icon size={14} aria-hidden="true" /> {label}</dt>
+                      <dd>{show(value)}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </section>
+
+              <section className="u-card">
+                <div className="u-card-head">
+                  <h2><CircleDollarSign size={16} aria-hidden="true" /> Payment</h2>
+                  <span className={`u-tag ${PAY_TAG[payStatus] ?? "warn"}`}>Payment {payStatus.toUpperCase()}</span>
+                </div>
+                <dl className="u-summary" style={{ margin: 0 }}>
+                  <div><dt>Subtotal</dt><dd>{money(b.subtotal)}</dd></div>
+                  <div><dt>Discount</dt><dd>{money(b.discount_amount)}</dd></div>
+                  <div><dt>Paid</dt><dd>{money(b.price_paid)}</dd></div>
+                  <div className="total"><dt>Total</dt><dd>{money(b.total_amount)}</dd></div>
+                </dl>
+              </section>
+            </div>
+
+            <div className="bd-grid3">
+              <section className="u-card">
+                <div className="u-card-head">
+                  <h2><Users size={16} aria-hidden="true" /> Members</h2>
+                  <span className="u-tag">{1 + members.length}</span>
+                </div>
+                <div className="bd-members">
+                  <div className="bd-member host">
+                    <span className="bd-av">{initials(b.customer_name)}</span>
+                    <div><strong>{show(b.customer_name)}</strong></div>
+                    <span className="u-tag warn"><Crown size={11} className="ico" aria-hidden="true" />Host</span>
+                  </div>
+                  {members.map((m) => (
+                    <div className="bd-member" key={m.id}>
+                      <span className="bd-av">{initials(m.name)}</span>
+                      <div>
+                        <strong>{m.name}</strong>
+                        {m.phone && <small>{m.phone}</small>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section className="u-card">
+                <h2><QrCode size={16} aria-hidden="true" /> QR check-in</h2>
+                {b.is_qr_valid ? (
+                  <div className="bd-qr">
+                    <img src={b.qr_code} alt={`QR code for booking ${b.booking_id}`} />
+                    <div>
+                      <div className="u-small">Token</div>
+                      <div className="bd-token">{b.qr_token}</div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bd-locked">
+                    <span><Lock size={20} aria-hidden="true" /></span>
+                    QR available after admin approval
+                  </div>
+                )}
+              </section>
+
+              <section className="u-card">
+                <div className="u-card-head">
+                  <h2><BadgeCheck size={16} aria-hidden="true" /> Approval</h2>
+                  <span className={`u-tag ${approved ? "ok" : "warn"}`}>{approved ? "Approved" : "Awaiting"}</span>
+                </div>
+                <dl className="u-summary bd-rows" style={{ margin: 0 }}>
+                  <div><dt><UserCheck size={14} aria-hidden="true" /> Approved by</dt><dd>{approved ? b.approved_by_name : "—"}</dd></div>
+                  <div><dt><Clock size={14} aria-hidden="true" /> Approved at</dt><dd>{b.approved_at && b.approved_at !== "--" ? b.approved_at : "—"}</dd></div>
+                </dl>
+              </section>
+            </div>
+
+            <section className="u-card">
+              <h2><NotebookPen size={16} aria-hidden="true" /> Notes</h2>
+              {b.notes && b.notes.trim() ? (
+                <p className="bd-notes">{b.notes}</p>
+              ) : (
+                <p className="bd-notes empty">No notes for this booking.</p>
+              )}
+            </section>
+          </div>
+        )}
+      </div>
     </UserLayout>
   );
 }

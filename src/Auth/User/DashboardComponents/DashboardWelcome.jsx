@@ -1,954 +1,333 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-import { motion, AnimatePresence, useReducedMotion, useMotionValue, useTransform, animate } from "framer-motion";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import { ChevronRight, Coins, Hand, Mail, X } from "lucide-react";
 
-// ─── Fonts ────────────────────────────────────────────────────────────────────
-const FONT_URL =
-  "https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Share+Tech+Mono&family=Inter:wght@300;400;500&display=swap";
+// Floating profile button on the dashboard. It starts bottom-right above the
+// dock and can be dragged anywhere (the spot is remembered). On arrival a
+// greeting bubble slides out of it for a few seconds; tapping the button opens a
+// small profile card whose loyalty tile links to the points page. The bubble and
+// card open towards whichever side of the screen has room.
 
-// ─── Design tokens ────────────────────────────────────────────────────────────
-const T = {
-  bg:      "#060610",
-  card:    "#0b0b1a",
-  panel:   "#0e0e20",
-  cyan:    "#00e5ff",
-  pink:    "#ff2d78",
-  yellow:  "#ffd60a",
-  purple:  "#8b5cf6",
-  green:   "#00ff94",
-  text:    "#e2e2ff",
-  muted:   "#5a5a80",
-  dimmer:  "#2a2a45",
-  // rgba helpers
-  cyanDim:   "rgba(0,229,255,0.08)",
-  cyanBdr:   "rgba(0,229,255,0.18)",
-  cyanMid:   "rgba(0,229,255,0.35)",
-  pinkDim:   "rgba(255,45,120,0.08)",
-  purpleDim: "rgba(139,92,246,0.12)",
-  yellowDim: "rgba(255,214,10,0.10)",
-  greenDim:  "rgba(0,255,148,0.08)",
-};
+const css = `
+.pw { position: fixed; z-index: 130; width: 60px; height: 60px; right: max(16px, env(safe-area-inset-right)); bottom: calc(100px + env(safe-area-inset-bottom));
+  font-family: 'Rajdhani', 'Inter', sans-serif; }
+.pw.placed { right: auto; bottom: auto; }
 
-// ─── Inline global styles (injected once) ─────────────────────────────────────
-const STYLE_ID = "dqw-v2-styles";
-function injectGlobalStyles() {
-  if (document.getElementById(STYLE_ID)) return;
-  const el = document.createElement("style");
-  el.id = STYLE_ID;
-  el.textContent = `
-    @import url('${FONT_URL}');
-    *, *::before, *::after { box-sizing: border-box; }
-    @keyframes dqw-scan {
-      0%   { transform: translateY(-100%); }
-      100% { transform: translateY(100vh); }
-    }
-    @keyframes dqw-flicker {
-      0%,100%{ opacity:1 } 92%{ opacity:1 } 93%{ opacity:0.3 } 95%{ opacity:1 }
-    }
-    @keyframes dqw-spin {
-      from { transform: rotate(0deg); }
-      to   { transform: rotate(360deg); }
-    }
-    @keyframes dqw-orbit {
-      from { transform: rotate(0deg) translateX(20px) rotate(0deg); }
-      to   { transform: rotate(360deg) translateX(20px) rotate(-360deg); }
-    }
-    @keyframes dqw-pulse-glow {
-      0%, 100% { box-shadow: 0 0 0 rgba(255,214,10,0); }
-      50%      { box-shadow: 0 0 26px rgba(255,214,10,0.16); }
-    }
-    @keyframes dqw-coin-flip {
-      0%, 100% { transform: rotateY(0deg) scale(1); }
-      45%      { transform: rotateY(180deg) scale(1.08); }
-      55%      { transform: rotateY(180deg) scale(1.08); }
-    }
-    @keyframes dqw-wiggle {
-      0%, 100% { transform: rotate(0deg); }
-      25%      { transform: rotate(-8deg); }
-      75%      { transform: rotate(8deg); }
-    }
-    @keyframes dqw-shimmer {
-      0%   { background-position: -200% 0; }
-      100% { background-position: 200% 0; }
-    }
-  `;
-  document.head.appendChild(el);
+/* the button: avatar inside a slowly turning gradient ring */
+.pw-fab { position: relative; flex: none; width: 100%; height: 100%; padding: 3px; border: 0; border-radius: 50%; cursor: grab; background: transparent;
+  touch-action: none; -webkit-user-select: none; user-select: none;
+  animation: pw-pop .6s .4s cubic-bezier(.34,1.56,.64,1) backwards; transition: transform .25s cubic-bezier(.34,1.56,.64,1); }
+.pw-fab::before { content: ""; position: absolute; inset: 0; border-radius: 50%;
+  background: conic-gradient(from var(--pw-a, 0deg), #00f5ff, #7b2fff, #ff2d78, #ffd60a, #00f5ff); animation: pw-turn 6s linear infinite; }
+.pw-fab::after { content: ""; position: absolute; inset: -6px; z-index: -1; border-radius: 50%; filter: blur(14px); opacity: .55;
+  background: conic-gradient(from var(--pw-a, 0deg), #00f5ff, #7b2fff, #ff2d78, #00f5ff); animation: pw-turn 6s linear infinite; }
+.pw-fab:hover { transform: translateY(-3px) scale(1.04); }
+.pw-fab:active { transform: scale(.94); }
+.pw-fab.open { transform: rotate(-8deg) scale(.96); }
+.pw.dragging .pw-fab { cursor: grabbing; transform: scale(1.12); transition: none; }
+.pw.dragging .pw-fab::after { opacity: .9; }
+.pw-logo { width: 62%; height: 62%; object-fit: contain; pointer-events: none; filter: drop-shadow(0 0 6px rgba(0,245,255,.45)); }
+.pw-face { position: relative; z-index: 1; width: 100%; height: 100%; display: grid; place-items: center; overflow: hidden; border-radius: 50%;
+  border: 2px solid #05040a; background: linear-gradient(145deg, #1a1838, #0a0a18); color: #fff; font: 900 17px/1 'Orbitron', sans-serif; }
+.pw-face img { width: 100%; height: 100%; object-fit: cover; }
+.pw-x { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(5,4,10,.78); color: #fff; opacity: 0; transition: opacity .2s; }
+.pw-fab.open .pw-x { opacity: 1; }
+.pw-pts { position: absolute; z-index: 2; top: -4px; left: -8px; display: inline-flex; align-items: center; gap: 3px; padding: 3px 7px 3px 5px; border-radius: 999px;
+  font: 800 11px/1 'Rajdhani', sans-serif; color: #241a00; background: linear-gradient(135deg, #ffd60a, #ff9f1c); box-shadow: 0 4px 12px rgba(255,170,0,.45);
+  border: 2px solid #05040a; }
+@property --pw-a { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+@keyframes pw-turn { to { --pw-a: 360deg; } }
+@keyframes pw-pop { from { opacity: 0; transform: scale(.4) rotate(-40deg); } to { opacity: 1; transform: none; } }
+
+/* greeting bubble */
+.pw-hi { position: absolute; top: 50%; translate: 0 -50%; right: calc(100% + 10px); width: max-content; display: flex; align-items: center; gap: 10px; max-width: var(--pw-room, 280px); padding: 10px 12px 10px 14px;
+  border: 1px solid rgba(255,255,255,.12); border-radius: 18px 18px 6px 18px; cursor: pointer; text-align: left; color: #fff; overflow: hidden;
+  background: linear-gradient(135deg, rgba(23,21,52,.94), rgba(10,10,24,.94)); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 16px 40px rgba(0,0,0,.5); transform-origin: right center; animation: pw-hi-in .55s .9s cubic-bezier(.22,1,.36,1) backwards; }
+.pw-hi.out { animation: pw-hi-out .35s ease forwards; }
+.pw-hi > svg { flex: none; color: #ffd60a; transform-origin: 70% 80%; animation: pw-wave 1.6s 1.4s ease-in-out 2; }
+.pw-hi b { display: block; font: 800 16px/1.15 'Rajdhani', sans-serif; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pw-hi small { display: block; margin-top: 2px; color: #a9a3c8; font-size: 13px; font-weight: 600; }
+.pw-hi i { position: absolute; left: 0; bottom: 0; height: 2px; width: 100%; background: linear-gradient(90deg, #00f5ff, #ff2d78); transform-origin: left;
+  animation: pw-timer 5s 1s linear both; }
+@keyframes pw-hi-in { from { opacity: 0; transform: scale(.85); } to { opacity: 1; transform: none; } }
+@keyframes pw-hi-out { to { opacity: 0; transform: scale(.85); } }
+@keyframes pw-wave { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(18deg); } 40% { transform: rotate(-10deg); } 60% { transform: rotate(14deg); } }
+@keyframes pw-timer { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+/* profile card */
+.pw.left .pw-hi { right: auto; left: calc(100% + 10px); border-radius: 18px 18px 18px 6px; transform-origin: left center; }
+.pw-card { position: absolute; right: 0; bottom: calc(100% + 14px); width: min(310px, calc(100vw - 32px)); padding: 16px; border-radius: 22px; color: #fff;
+  background: linear-gradient(160deg, #16153a, #0a0a18 70%); border: 1px solid rgba(255,255,255,.1);
+  box-shadow: 0 24px 60px rgba(0,0,0,.6), 0 0 40px rgba(123,47,255,.15); transform-origin: calc(100% - 30px) 100%;
+  animation: pw-card-in .4s cubic-bezier(.34,1.4,.64,1) backwards; }
+.pw-card::before { content: ""; position: absolute; inset: 0 0 auto; height: 90px; border-radius: 22px 22px 0 0; pointer-events: none;
+  background: radial-gradient(circle at 20% 0%, rgba(0,245,255,.22), transparent 60%), radial-gradient(circle at 90% 10%, rgba(255,45,120,.18), transparent 55%); }
+.pw.left .pw-card { right: auto; left: 0; transform-origin: 30px 100%; }
+.pw.below .pw-card { bottom: auto; top: calc(100% + 14px); transform-origin: calc(100% - 30px) 0; }
+.pw.left.below .pw-card { transform-origin: 30px 0; }
+@keyframes pw-card-in { from { opacity: 0; transform: translateY(10px) scale(.9); } to { opacity: 1; transform: none; } }
+.pw-close { position: absolute; top: 10px; right: 10px; width: 34px; height: 34px; display: grid; place-items: center; border: 0; border-radius: 10px;
+  cursor: pointer; color: #a9a3c8; background: rgba(255,255,255,.05); transition: color .2s, background .2s; }
+.pw-close:hover { color: #fff; background: rgba(255,255,255,.1); }
+.pw-who { position: relative; display: flex; align-items: center; gap: 12px; padding-right: 36px; margin-bottom: 14px; }
+.pw-who .pw-face { width: 52px; height: 52px; flex: none; border: 2px solid rgba(0,245,255,.5); box-shadow: 0 0 18px rgba(0,245,255,.25); }
+.pw-who div { min-width: 0; }
+.pw-who small { display: block; font: 700 11px/1.2 'Share Tech Mono', monospace; letter-spacing: .18em; text-transform: uppercase; color: #00f5ff; }
+.pw-who strong { display: block; margin-top: 3px; font: 900 16px/1.2 'Orbitron', sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pw-who span { display: flex; align-items: center; gap: 5px; margin-top: 4px; color: #9b95bb; font-size: 13.5px; white-space: nowrap; overflow: hidden; }
+.pw-who span svg { flex: none; }
+.pw-who span em { font-style: normal; overflow: hidden; text-overflow: ellipsis; }
+.pw-loyal { position: relative; display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 16px; text-decoration: none; color: #fff; overflow: hidden;
+  background: linear-gradient(135deg, rgba(255,214,10,.14), rgba(255,159,28,.06)); border: 1px solid rgba(255,214,10,.3);
+  transition: transform .2s, border-color .2s, box-shadow .25s; }
+.pw-loyal:hover { transform: translateY(-2px); border-color: rgba(255,214,10,.6); box-shadow: 0 10px 26px rgba(255,170,0,.18); }
+.pw-coin { width: 44px; height: 44px; flex: none; display: grid; place-items: center; border-radius: 14px; color: #241a00;
+  background: linear-gradient(135deg, #ffd60a, #ff9f1c); box-shadow: 0 6px 16px rgba(255,170,0,.35); }
+.pw-loyal div { flex: 1; min-width: 0; }
+.pw-loyal small { display: block; font: 700 11px/1.2 'Share Tech Mono', monospace; letter-spacing: .16em; text-transform: uppercase; color: #ffe066; }
+.pw-loyal b { display: block; margin-top: 3px; font: 900 22px/1 'Orbitron', sans-serif; }
+.pw-loyal em { display: inline-flex; align-items: center; gap: 2px; font-style: normal; font-weight: 700; font-size: 14px; color: #ffd60a; white-space: nowrap; }
+.pw-loyal em svg { transition: transform .2s; } .pw-loyal:hover em svg { transform: translateX(3px); }
+
+@media (max-width: 640px) {
+  .pw:not(.placed) { right: 14px; }
+  .pw { width: 54px; height: 54px; }
 }
+@media (prefers-reduced-motion: reduce) {
+  .pw-fab, .pw-fab::before, .pw-fab::after, .pw-hi, .pw-hi > svg, .pw-hi i, .pw-card { animation: none; }
+}
+`;
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-function greetingByHour(h) {
-  if (h < 5)  return "Still up";
-  if (h < 12) return "Good morning";
-  if (h < 17) return "Good afternoon";
-  if (h < 21) return "Good evening";
+function greetingFor(hour) {
+  if (hour < 5) return "Still up";
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  if (hour < 21) return "Good evening";
   return "Good night";
 }
-function initials(name = "") {
-  return name.trim().split(/\s+/).slice(0, 2).map(p => p[0]?.toUpperCase() ?? "").join("") || "?";
-}
-function fmtTime(d) {
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
-function fmtNum(n) {
-  if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, "") + "k";
-  return String(n);
+
+const initials = (name = "") =>
+  name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("") || "?";
+
+const POS_KEY = "dqd-profile-fab-pos";
+const EDGE = 12;
+
+// Keep the button fully on screen (and below the logo pill at the top).
+function clampPos(x, y, size) {
+  const maxX = window.innerWidth - size - EDGE;
+  const maxY = window.innerHeight - size - EDGE;
+  return { x: Math.max(EDGE, Math.min(maxX, x)), y: Math.max(76, Math.min(maxY, y)) };
 }
 
-// ─── Inline SVG Icons ─────────────────────────────────────────────────────────
-const Ico = {
-  Calendar: ({ c = T.cyan }) => (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/>
-    </svg>
-  ),
-  Trophy: ({ c = T.pink }) => (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M8 4h8v5a4 4 0 01-8 0V4z"/><path d="M8 5H5a2 2 0 002 4M16 5h3a2 2 0 01-2 4"/>
-      <path d="M12 13v3M9 20h6"/><rect x="10" y="16" width="4" height="4" rx="0.5"/>
-    </svg>
-  ),
-  Dice: ({ c = T.purple }) => (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="3" y="3" width="18" height="18" rx="3"/>
-      <circle cx="8.5" cy="8.5" r="1" fill={c}/><circle cx="15.5" cy="8.5" r="1" fill={c}/>
-      <circle cx="8.5" cy="15.5" r="1" fill={c}/><circle cx="15.5" cy="15.5" r="1" fill={c}/>
-      <circle cx="12" cy="12" r="1" fill={c}/>
-    </svg>
-  ),
-  Coin: ({ c = T.yellow }) => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="12" cy="12" r="9"/>
-      <path d="M12 7v10M9.5 9.5C9.5 8.1 10.6 7 12 7s2.5.9 2.5 2-1 1.5-2.5 2-2.5.6-2.5 2 1 2 2.5 2 2.5-.9 2.5-2"/>
-    </svg>
-  ),
-  Close: () => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-    </svg>
-  ),
-  ChevronRight: () => (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <polyline points="9 18 15 12 9 6"/>
-    </svg>
-  ),
-  Signal: ({ c = T.cyan }) => (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-      <path d="M1 6C1 6 5 2 12 2s11 4 11 4M5 10s2-2 7-2 7 2 7 2M9 14s1-1 3-1 3 1 3 1"/>
-      <circle cx="12" cy="18" r="1" fill={c}/>
-    </svg>
-  ),
-  User: ({ c = T.cyan }) => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
-    </svg>
-  ),
-};
+// Saved as fractions of the screen so it lands in the same spot after a resize.
+function loadPos() {
+  try {
+    const v = JSON.parse(localStorage.getItem(POS_KEY));
+    if (v && Number.isFinite(v.fx) && Number.isFinite(v.fy)) return v;
+  } catch {
+    /* storage blocked */
+  }
+  return null;
+}
 
-// ─── Lazy Avatar ─────────────────────────────────────────────────────────────
-function Avatar({ src, name, size = 48 }) {
-  const [state, setState] = useState(src ? "loading" : "fallback");
+const shortNum = (n) => (n >= 1000 ? `${(n / 1000).toFixed(1).replace(/\.0$/, "")}k` : String(n));
 
+function Face({ src, name }) {
+  const [broken, setBroken] = useState(false);
+  useEffect(() => setBroken(false), [src]);
+  return (
+    <span className="pw-face">
+      {src && !broken ? <img src={src} alt="" onError={() => setBroken(true)} /> : initials(name)}
+    </span>
+  );
+}
+
+function DashboardWelcome({ user, stats }) {
+  const [hi, setHi] = useState("in"); // in | out | gone
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState(null); // { x, y } in px; null = default corner
+  const [dragging, setDragging] = useState(false);
+  const [side, setSide] = useState({ left: false, below: false, cardX: null, room: 280 });
+  const rootRef = useRef(null);
+  const drag = useRef(null);
+  const moved = useRef(false);
+
+  // Which way the bubble and card should open, based on where the button sits.
+  const measureSide = () => {
+    const r = rootRef.current.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const left = r.left + r.width / 2 < vw / 2;
+    // Card: line it up with the button's edge, then nudge it back on screen.
+    const cardW = Math.min(310, vw - 32);
+    const want = left ? 0 : r.width - cardW;
+    const cardX = Math.max(EDGE - r.left, Math.min(vw - EDGE - cardW - r.left, want));
+    // Bubble: as wide as the room on its side allows.
+    const room = Math.min(280, (left ? vw - r.right : r.left) - 10 - EDGE);
+    setSide({ left, below: r.top < 340, cardX, room });
+  };
+
+  // Restore a saved spot, and keep it on screen when the window resizes.
   useEffect(() => {
-    if (!src) { setState("fallback"); return; }
-    setState("loading");
-    const img = new window.Image();
-    img.src = src;
-    img.onload  = () => setState("loaded");
-    img.onerror = () => setState("fallback");
-    return () => { img.onload = null; img.onerror = null; };
-  }, [src]);
+    const place = () => {
+      const el = rootRef.current;
+      if (!el) return;
+      const saved = loadPos();
+      if (saved) setPos(clampPos(saved.fx * window.innerWidth, saved.fy * window.innerHeight, el.offsetWidth));
+      else measureSide();
+    };
+    place();
+    window.addEventListener("resize", place);
+    return () => window.removeEventListener("resize", place);
+  }, []);
 
-  const text = initials(name);
-  const s = size;
+  // Re-measure once the button has settled in a new spot.
+  useLayoutEffect(() => {
+    if (!dragging) measureSide();
+  }, [pos, dragging]);
 
-  return (
-    <div style={{ width: s, height: s, borderRadius: "50%", position: "relative", flexShrink: 0 }}>
-      {/* Rotating ring */}
-      <svg
-        width={s + 8} height={s + 8}
-        style={{ position: "absolute", top: -4, left: -4, animation: "dqw-spin 8s linear infinite" }}
-        aria-hidden="true"
-      >
-        <circle
-          cx={(s + 8) / 2} cy={(s + 8) / 2} r={s / 2 + 2}
-          fill="none"
-          stroke={`url(#ring-grad-${s})`}
-          strokeWidth="1.5"
-          strokeDasharray="6 4"
-        />
-        <defs>
-          <linearGradient id={`ring-grad-${s}`} x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor={T.cyan}/>
-            <stop offset="50%" stopColor={T.purple}/>
-            <stop offset="100%" stopColor={T.pink}/>
-          </linearGradient>
-        </defs>
-      </svg>
+  const onPointerDown = (e) => {
+    if (e.button !== 0) return;
+    const r = rootRef.current.getBoundingClientRect();
+    drag.current = { id: e.pointerId, dx: e.clientX - r.left, dy: e.clientY - r.top, sx: e.clientX, sy: e.clientY };
+    moved.current = false;
+    // Keep receiving moves even when a fast drag jumps off the button.
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+  };
 
-      {/* Inner circle */}
-      <div style={{
-        width: s, height: s, borderRadius: "50%",
-        background: T.card,
-        border: `1.5px solid ${T.cyanBdr}`,
-        overflow: "hidden",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        position: "relative",
-      }}>
-        {state === "loading" && (
-          <div style={{
-            position: "absolute", inset: 0,
-            background: `linear-gradient(110deg, ${T.card} 25%, ${T.panel} 50%, ${T.card} 75%)`,
-            backgroundSize: "200% 100%",
-            animation: "dqw-scan 1.5s linear infinite",
-          }} />
-        )}
-        {state === "loaded" && (
-          <motion.img
-            src={src} alt={name || "Avatar"}
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }}
-            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-          />
-        )}
-        {state === "fallback" && (
-          <span style={{
-            fontFamily: "'Orbitron', sans-serif",
-            fontSize: s * 0.3,
-            fontWeight: 700,
-            color: T.cyan,
-            letterSpacing: "0.05em",
-          }}>
-            {text}
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}
+  const onPointerMove = (e) => {
+    const d = drag.current;
+    if (!d || d.id !== e.pointerId) return;
+    if (!moved.current) {
+      if (Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < 6) return;
+      moved.current = true;
+      setDragging(true);
+      setHi("gone");
+      setOpen(false);
+    }
+    setPos(clampPos(e.clientX - d.dx, e.clientY - d.dy, rootRef.current.offsetWidth));
+  };
 
-// ─── Animated scan line ───────────────────────────────────────────────────────
-function ScanLine() {
-  return (
-    <div style={{
-      position: "absolute", inset: 0, overflow: "hidden",
-      pointerEvents: "none", borderRadius: "inherit", zIndex: 0,
-    }}>
-      <div style={{
-        position: "absolute",
-        left: 0, right: 0,
-        height: "1px",
-        background: `linear-gradient(90deg, transparent, ${T.cyan}40, transparent)`,
-        animation: "dqw-scan 4s linear infinite",
-      }} />
-    </div>
-  );
-}
+  const onPointerUp = (e) => {
+    const d = drag.current;
+    if (!d || d.id !== e.pointerId) return;
+    drag.current = null;
+    if (!moved.current) return; // a plain tap: onClick handles it
+    setDragging(false);
+    const r = rootRef.current.getBoundingClientRect();
+    try {
+      localStorage.setItem(POS_KEY, JSON.stringify({ fx: r.left / window.innerWidth, fy: r.top / window.innerHeight }));
+    } catch {
+      /* storage blocked */
+    }
+  };
 
-// ─── Corner accents (clipped corners) ────────────────────────────────────────
-function CornerAccents({ color = T.cyan, size = 10 }) {
-  const style = (pos) => ({
-    position: "absolute",
-    width: size, height: size,
-    pointerEvents: "none",
-    ...pos,
-  });
-  const lineH = { position: "absolute", left: 0, right: 0, height: "1px", background: color };
-  const lineV = { position: "absolute", top: 0, bottom: 0, width: "1px", background: color };
-  return (
-    <>
-      <div style={style({ top: 0, left: 0 })}>
-        <div style={{ ...lineH, top: 0 }} /><div style={{ ...lineV, left: 0 }} />
-      </div>
-      <div style={style({ top: 0, right: 0 })}>
-        <div style={{ ...lineH, top: 0 }} /><div style={{ ...lineV, right: 0 }} />
-      </div>
-      <div style={style({ bottom: 0, left: 0 })}>
-        <div style={{ ...lineH, bottom: 0 }} /><div style={{ ...lineV, left: 0 }} />
-      </div>
-      <div style={style({ bottom: 0, right: 0 })}>
-        <div style={{ ...lineH, bottom: 0 }} /><div style={{ ...lineV, right: 0 }} />
-      </div>
-    </>
-  );
-}
+  const greeting = greetingFor(new Date().getHours());
+  const firstName = user?.full_name?.split(" ")[0] || "Player";
+  const points = Number(stats?.loyalty_points ?? user?.loyalty_points ?? 0) || 0;
 
-// ─── Sparkle burst (decorative confetti of light) ─────────────────────────────
-function Sparkle({ x, y, delay, size = 6, color = T.yellow }) {
-  return (
-    <motion.div
-      aria-hidden="true"
-      initial={{ opacity: 0, scale: 0, rotate: 0 }}
-      animate={{
-        opacity: [0, 1, 1, 0],
-        scale: [0, 1, 1, 0.3],
-        y: [0, -10, -16, -20],
-        rotate: [0, 40, 90],
-      }}
-      transition={{
-        duration: 1.6,
-        delay,
-        repeat: Infinity,
-        repeatDelay: 2.6,
-        ease: "easeOut",
-      }}
-      style={{ position: "absolute", left: x, top: y, pointerEvents: "none" }}
-    >
-      <svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
-        <path d="M12 0l2.3 8.2L23 11l-8.7 2.8L12 22l-2.3-8.2L1 11l8.7-2.8z" />
-      </svg>
-    </motion.div>
-  );
-}
-
-// ─── Count-up number, ticks up whenever the value changes ────────────────────
-function CountUp({ value, reducedMotion }) {
-  const [display, setDisplay] = useState(reducedMotion ? value : 0);
-  const prevValue = useRef(reducedMotion ? value : 0);
-
+  // The greeting bubble shows for ~6s after arriving, then slides away.
   useEffect(() => {
-    if (reducedMotion) { setDisplay(value); prevValue.current = value; return; }
-    const controls = animate(prevValue.current, value, {
-      duration: 1.15,
-      ease: [0.16, 1, 0.3, 1],
-      onUpdate: (v) => setDisplay(Math.round(v)),
-    });
-    prevValue.current = value;
-    return () => controls.stop();
-  }, [value, reducedMotion]);
+    if (hi !== "in") return undefined;
+    const t = setTimeout(() => setHi("out"), 6000);
+    return () => clearTimeout(t);
+  }, [hi]);
 
-  return <>{fmtNum(display)}</>;
-}
+  // Close the card on Escape or a tap outside.
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKey = (e) => e.key === "Escape" && setOpen(false);
+    const onDown = (e) => rootRef.current && !rootRef.current.contains(e.target) && setOpen(false);
+    window.addEventListener("keydown", onKey);
+    document.addEventListener("pointerdown", onDown);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.removeEventListener("pointerdown", onDown);
+    };
+  }, [open]);
 
-// ─── Loyalty stat card — the hero of the panel ────────────────────────────────
-function StatCard({ icon, label, value, accent, bg, delay = 0, reducedMotion }) {
-  const [hovered, setHovered] = useState(false);
-  const [popped, setPopped] = useState(false);
-
-  const sparkles = useRef(
-    Array.from({ length: 5 }).map((_, i) => ({
-      x: `${8 + Math.random() * 78}%`,
-      y: `${12 + Math.random() * 58}%`,
-      delay: i * 0.4,
-      size: 5 + Math.random() * 5,
-    }))
-  ).current;
-
-  const handlePop = () => {
-    if (popped) return;
-    setPopped(true);
-    setTimeout(() => setPopped(false), 650);
+  const openCard = () => {
+    setHi("gone");
+    setOpen(true);
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16, scale: 0.94 }}
-      animate={{ opacity: 1, y: 0, scale: 1, transition: { delay, duration: reducedMotion ? 0.1 : 0.5, ease: [0.22, 1, 0.36, 1] } }}
-      onHoverStart={() => setHovered(true)}
-      onHoverEnd={() => setHovered(false)}
-      onTap={handlePop}
-      whileHover={reducedMotion ? {} : { y: -2 }}
-      whileTap={reducedMotion ? {} : { scale: 0.97 }}
-      style={{
-        position: "relative",
-        background: `linear-gradient(155deg, ${T.panel} 0%, ${T.card} 100%)`,
-        border: `1px solid ${hovered ? accent + "70" : T.cyanBdr}`,
-        borderRadius: "10px",
-        padding: "11px 13px",
-        display: "flex",
-        alignItems: "center",
-        gap: "10px",
-        cursor: "pointer",
-        overflow: "hidden",
-        width: "100%",
-        transition: "border-color 0.25s",
-        animation: reducedMotion ? "none" : "dqw-pulse-glow 3.4s ease-in-out infinite",
-      }}
+    <div
+      className={`pw${pos ? " placed" : ""}${dragging ? " dragging" : ""}${side.left ? " left" : ""}${side.below ? " below" : ""}`}
+      ref={rootRef}
+      style={{ ...(pos ? { left: pos.x, top: pos.y } : null), "--pw-room": `${side.room}px` }}
     >
-      {/* Ambient hover glow */}
-      <AnimatePresence>
-        {hovered && (
-          <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            style={{
-              position: "absolute", inset: 0,
-              background: `radial-gradient(circle at 18% 45%, ${accent}22 0%, transparent 70%)`,
-              pointerEvents: "none",
-            }}
-          />
-        )}
-      </AnimatePresence>
+      <style>{css}</style>
 
-      {/* Diagonal shimmer sweep */}
-      <div aria-hidden="true" style={{
-        position: "absolute", inset: 0,
-        background: `linear-gradient(100deg, transparent 40%, ${accent}14 50%, transparent 60%)`,
-        backgroundSize: "250% 100%",
-        animation: reducedMotion ? "none" : "dqw-shimmer 5s linear infinite",
-        pointerEvents: "none",
-      }} />
-
-      {/* Sparkle field */}
-      {!reducedMotion && sparkles.map((s, i) => (
-        <Sparkle key={i} x={s.x} y={s.y} delay={s.delay} size={s.size} color={accent} />
-      ))}
-
-      {/* Coin well — flips like a tossed coin, wiggles on tap */}
-      <div style={{
-        width: 32, height: 32, borderRadius: "50%",
-        background: bg,
-        border: `1px solid ${accent}45`,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        flexShrink: 0,
-        position: "relative",
-        perspective: "200px",
-      }}>
-        <div style={{
-          display: "flex", alignItems: "center", justifyContent: "center",
-          width: "100%", height: "100%",
-          animation: reducedMotion
-            ? "none"
-            : popped
-              ? "dqw-wiggle 0.5s ease-in-out"
-              : "dqw-coin-flip 3.8s ease-in-out infinite",
-        }}>
-          {icon}
-        </div>
-
-        {/* Tap pop ring */}
-        <AnimatePresence>
-          {popped && (
-            <motion.div
-              initial={{ opacity: 0.7, scale: 0.6 }}
-              animate={{ opacity: 0, scale: 2.1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.65, ease: "easeOut" }}
-              style={{
-                position: "absolute", inset: 0, borderRadius: "50%",
-                border: `1.5px solid ${accent}`,
-                pointerEvents: "none",
-              }}
-            />
-          )}
-        </AnimatePresence>
-      </div>
-
-      <div style={{ position: "relative", zIndex: 1, minWidth: 0 }}>
-        <div style={{
-          fontFamily: "'Orbitron', sans-serif",
-          fontSize: "clamp(0.95rem, 3vw, 1.15rem)",
-          fontWeight: 900,
-          color: T.text,
-          lineHeight: 1,
-          letterSpacing: "0.02em",
-        }}>
-          <CountUp value={value} reducedMotion={reducedMotion} />
-        </div>
-        <div style={{
-          fontFamily: "'Share Tech Mono', monospace",
-          fontSize: "0.5rem",
-          letterSpacing: "2px",
-          color: T.muted,
-          textTransform: "uppercase",
-          marginTop: "3px",
-        }}>
-          {label}
-        </div>
-      </div>
-
-      {/* Decorative trailing hint arrow */}
-      <motion.div
-        animate={reducedMotion ? {} : { x: [0, 4, 0] }}
-        transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
-        style={{ marginLeft: "auto", color: accent, opacity: 0.55, position: "relative", zIndex: 1 }}
-        aria-hidden="true"
-      >
-        <Ico.ChevronRight />
-      </motion.div>
-    </motion.div>
-  );
-}
-
-// ─── Floating toast ───────────────────────────────────────────────────────────
-function Toast({ user, greeting, firstName, onExpand, onDismiss, reducedMotion }) {
-  const [progress, setProgress] = useState(1);
-
-  useEffect(() => {
-    const t = setTimeout(() => setProgress(0), 50);
-    return () => clearTimeout(t);
-  }, []);
-
-  return (
-    <motion.div
-      initial={{ x: 40, opacity: 0 }}
-      animate={{ x: 0, opacity: 1, transition: { duration: reducedMotion ? 0.1 : 0.5, ease: [0.22, 1, 0.36, 1] } }}
-      exit={{ x: 40, opacity: 0, transition: { duration: 0.3 } }}
-      role="status"
-      aria-live="polite"
-      style={{
-        position: "fixed",
-        right: "52px",
-        top: "35%",
-        transform: "translateY(-50%)",
-        zIndex: 9999,
-        width: "clamp(220px, 30vw, 280px)",
-        background: T.card,
-        border: `1px solid ${T.cyanBdr}`,
-        borderRadius: "8px",
-        padding: "14px 16px",
-        overflow: "hidden",
-        boxShadow: `0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px ${T.cyanBdr}`,
-      }}
-    >
-      <ScanLine />
-      <CornerAccents color={T.cyan} size={8} />
-
-      <div style={{ display: "flex", alignItems: "center", gap: "12px", position: "relative", zIndex: 1 }}>
-        <Avatar src={user?.profile_image} name={user?.full_name} size={38} />
-
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{
-            fontFamily: "'Orbitron', sans-serif",
-            fontSize: "0.75rem",
-            fontWeight: 700,
-            color: T.cyan,
-            marginBottom: "3px",
-            animation: "dqw-flicker 6s ease-in-out infinite",
-          }}>
-            {greeting}, {firstName}
-          </div>
-          <div style={{
-            fontFamily: "'Share Tech Mono', monospace",
-            fontSize: "0.6rem",
-            color: T.muted,
-            letterSpacing: "0.5px",
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-          }}>
-            Dashboard ready
-          </div>
-        </div>
-
-        <div style={{ display: "flex", gap: "6px", flexShrink: 0 }}>
-          <button
-            onClick={onExpand}
-            aria-label="View details"
-            style={{
-              background: T.cyanDim, border: `1px solid ${T.cyanBdr}`,
-              borderRadius: "4px", width: 26, height: 26,
-              display: "grid", placeItems: "center",
-              color: T.cyan, cursor: "pointer",
-            }}
-          >
-            <Ico.ChevronRight />
-          </button>
-          <button
-            onClick={onDismiss}
-            aria-label="Dismiss"
-            style={{
-              background: "transparent", border: `1px solid ${T.dimmer}`,
-              borderRadius: "4px", width: 26, height: 26,
-              display: "grid", placeItems: "center",
-              color: T.muted, cursor: "pointer",
-            }}
-          >
-            <Ico.Close />
-          </button>
-        </div>
-      </div>
-
-      {/* Progress drain bar */}
-      <div style={{
-        position: "absolute", bottom: 0, left: 0, right: 0,
-        height: "2px", background: T.cyanDim,
-      }}>
-        <motion.div
-          initial={{ scaleX: 1 }}
-          animate={{ scaleX: 0 }}
-          transition={{ duration: 5, ease: "linear" }}
-          onAnimationComplete={onDismiss}
-          style={{
-            height: "100%",
-            background: `linear-gradient(90deg, ${T.cyan}, ${T.purple})`,
-            transformOrigin: "left",
-          }}
-        />
-      </div>
-    </motion.div>
-  );
-}
-
-// ─── Trigger tab — round, floating, and draggable along the edge ─────────────
-function Tab({ onClick, panelOpen, reducedMotion }) {
-  const y = useMotionValue(0);
-  const [topPercent, setTopPercent] = useState(35);
-  const [dragging, setDragging] = useState(false);
-
-  const handleDragEnd = useCallback((_, info) => {
-    setDragging(false);
-    const vh = typeof window !== "undefined" ? window.innerHeight : 800;
-    const deltaPercent = (info.offset.y / vh) * 100;
-    const presets = [12, 30, 50, 70, 88];
-    let candidate = topPercent + deltaPercent;
-    candidate = Math.max(8, Math.min(92, candidate));
-    const snapped = presets.reduce((a, b) => (Math.abs(b - candidate) < Math.abs(a - candidate) ? b : a));
-    setTopPercent(snapped);
-    animate(y, 0, { type: "spring", stiffness: 380, damping: 28 });
-  }, [topPercent, y]);
-
-  return (
-    <motion.button
-      onTap={onClick}
-      drag="y"
-      dragElastic={0.2}
-      dragMomentum={false}
-      dragConstraints={{ top: -260, bottom: 260 }}
-      onDragStart={() => setDragging(true)}
-      onDragEnd={handleDragEnd}
-      initial={{ x: 10, opacity: 0, scale: 0.6 }}
-      animate={{ x: 0, opacity: 1, scale: 1, transition: { delay: 0.8, duration: 0.4 } }}
-      whileHover={reducedMotion ? {} : { scale: 1.08 }}
-      whileTap={{ scale: 0.92 }}
-      aria-label={panelOpen ? "Close profile panel" : "Open profile panel — drag to reposition"}
-      aria-expanded={panelOpen}
-      style={{
-        position: "fixed",
-        right: "10px",
-        top: `calc(${topPercent}% - 21px)`,
-        y,
-        zIndex: 9998,
-        width: 42,
-        height: 42,
-        borderRadius: "50%",
-        background: panelOpen
-          ? `radial-gradient(circle at 32% 28%, ${T.cyan}30, ${T.card} 72%)`
-          : `radial-gradient(circle at 32% 28%, ${T.panel}, ${T.card} 75%)`,
-        border: `1.5px solid ${panelOpen ? T.cyanMid : T.cyanBdr}`,
-        display: "grid",
-        placeItems: "center",
-        cursor: dragging ? "grabbing" : "grab",
-        color: T.cyan,
-        boxShadow: panelOpen
-          ? "0 0 24px rgba(0,229,255,0.32), 0 4px 18px rgba(0,0,0,0.55)"
-          : "0 0 14px rgba(0,229,255,0.14), 0 4px 18px rgba(0,0,0,0.55)",
-        transition: "background 0.22s, box-shadow 0.22s, border-color 0.22s",
-        touchAction: "none",
-      }}
-    >
-      {/* Orbiting dashed ring accessory */}
-      <svg
-        width={50} height={50}
-        style={{ position: "absolute", top: -4, left: -4, animation: reducedMotion ? "none" : "dqw-spin 9s linear infinite" }}
-        aria-hidden="true"
-      >
-        <circle cx={25} cy={25} r={21} fill="none" stroke="url(#tab-ring-grad)" strokeWidth="1.1" strokeDasharray="3 5" />
-        <defs>
-          <linearGradient id="tab-ring-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor={T.cyan}/>
-            <stop offset="100%" stopColor={T.pink}/>
-          </linearGradient>
-        </defs>
-      </svg>
-
-      {/* Idle radar ping so it reads as alive & grabbable */}
-      {!panelOpen && !dragging && !reducedMotion && (
-        <motion.span
-          aria-hidden="true"
-          animate={{ scale: [1, 1.55], opacity: [0.35, 0] }}
-          transition={{ duration: 2.2, repeat: Infinity, ease: "easeOut" }}
-          style={{
-            position: "absolute", inset: 0, borderRadius: "50%",
-            border: `1px solid ${T.cyan}`, pointerEvents: "none",
-          }}
-        />
+      {hi !== "gone" && !open && (
+        <button
+          type="button"
+          className={`pw-hi${hi === "out" ? " out" : ""}`}
+          onClick={openCard}
+          onAnimationEnd={(e) => e.animationName === "pw-hi-out" && setHi("gone")}
+          aria-live="polite"
+        >
+          <Hand size={22} aria-hidden="true" />
+          <span style={{ minWidth: 0 }}>
+            <b>{greeting}, {firstName}</b>
+            <small>Tap to see your profile</small>
+          </span>
+          <i aria-hidden="true" />
+        </button>
       )}
 
-      <img
-        src="/logo.png"
-        alt=""
-        aria-hidden="true"
-        draggable={false}
-        style={{
-          width: 18,
-          height: 18,
-          objectFit: "contain",
-          pointerEvents: "none",
-          filter: panelOpen
-            ? "brightness(0) saturate(100%) invert(83%) sepia(76%) saturate(400%) hue-rotate(155deg) brightness(105%)"
-            : "brightness(0) invert(1) opacity(0.85)",
-          transition: "filter 0.22s",
-        }}
-      />
-
-      {/* Grip dots — hints that this button can be dragged */}
-      <div
-        aria-hidden="true"
-        style={{
-          position: "absolute", bottom: 4,
-          display: "flex", gap: 2, pointerEvents: "none",
-        }}
-      >
-        <span style={{ width: 2, height: 2, borderRadius: "50%", background: T.muted }} />
-        <span style={{ width: 2, height: 2, borderRadius: "50%", background: T.muted }} />
-        <span style={{ width: 2, height: 2, borderRadius: "50%", background: T.muted }} />
-      </div>
-    </motion.button>
-  );
-}
-
-// ─── Detail Panel ─────────────────────────────────────────────────────────────
-function Panel({ user, stats, greeting, reducedMotion, onClose }) {
-  const firstName = user?.full_name?.split(" ")[0] || "Player";
-  const hour = new Date().getHours();
-
-  const statItems = [
-    // { key: "bookings", label: "Bookings",    value: stats?.total_bookings  ?? 0, Icon: Ico.Calendar, accent: T.cyan,   bg: T.cyanDim   },
-    // { key: "events",   label: "Events",      value: stats?.total_events    ?? 0, Icon: Ico.Trophy,   accent: T.pink,   bg: T.pinkDim   },
-    // { key: "spins",    label: "Spins",       value: stats?.total_spins     ?? 0, Icon: Ico.Dice,     accent: T.purple, bg: T.purpleDim },
-    { key: "points",   label: "Loyalty pts", value: stats?.loyalty_points ?? user?.loyalty_points ?? 0, Icon: Ico.Coin, accent: T.yellow, bg: T.yellowDim },
-  ];
-
-  const mx = useMotionValue(0);
-  const my = useMotionValue(0);
-  const rotX = useTransform(my, [-80, 80], [3, -3]);
-  const rotY = useTransform(mx, [-120, 120], [-3, 3]);
-
-  const handleMouseMove = useCallback((e) => {
-    if (reducedMotion) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    mx.set(e.clientX - rect.left - rect.width  / 2);
-    my.set(e.clientY - rect.top  - rect.height / 2);
-  }, [mx, my, reducedMotion]);
-
-  const handleMouseLeave = useCallback(() => {
-    mx.set(0); my.set(0);
-  }, [mx, my]);
-
-  return (
-    <motion.div
-      initial={{ x: 40, opacity: 0 }}
-      animate={{ x: 0, opacity: 1, transition: { duration: reducedMotion ? 0.1 : 0.42, ease: [0.22, 1, 0.36, 1] } }}
-      exit={{ x: 40, opacity: 0, transition: { duration: 0.25 } }}
-      role="dialog"
-      aria-modal="false"
-      aria-label="Profile panel"
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-      style={{
-        position: "fixed",
-        right: "44px",
-        top: "35%",
-        transform: "translateY(-50%)",
-        zIndex: 9997,
-        width: "clamp(270px, 28vw, 320px)",
-        maxWidth: "calc(100vw - 56px)",
-        background: T.card,
-        border: `1px solid ${T.cyanBdr}`,
-        borderRadius: "10px 0 0 10px",
-        overflow: "hidden",
-        boxShadow: `-6px 0 40px rgba(0,0,0,0.7), 0 0 0 1px ${T.cyanBdr}`,
-      }}
-    >
-      {/* Tilt wrapper */}
-      <motion.div style={{ rotateX: rotX, rotateY: rotY, transformStyle: "preserve-3d" }}>
-
-        {/* Decorative: ambient glow top-left */}
-        <div style={{
-          position: "absolute", top: -30, left: -30,
-          width: 120, height: 120, borderRadius: "50%",
-          background: `radial-gradient(circle, ${T.cyan}12 0%, transparent 70%)`,
-          pointerEvents: "none",
-        }} />
-
-        <ScanLine />
-        <CornerAccents color={T.cyan} size={12} />
-
-        {/* Content */}
-        <div style={{ position: "relative", zIndex: 1, padding: "20px 18px 16px" }}>
-
-          {/* Close */}
-          <motion.button
-            onClick={onClose}
-            whileHover={{ color: T.pink }}
-            aria-label="Close panel"
-            style={{
-              position: "absolute", top: 12, right: 12,
-              background: "transparent", border: "none",
-              color: T.muted, cursor: "pointer",
-              display: "grid", placeItems: "center",
-              width: 26, height: 26,
-              borderRadius: "4px",
-              transition: "color 0.2s",
-            }}
-          >
-            <Ico.Close />
-          </motion.button>
-
-          {/* Header */}
-          <div style={{ display: "flex", alignItems: "center", gap: "14px", marginBottom: "16px" }}>
-            <Avatar src={user?.profile_image} name={user?.full_name} size={52} />
-
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{
-                fontFamily: "'Share Tech Mono', monospace",
-                fontSize: "0.55rem",
-                letterSpacing: "3px",
-                color: T.muted,
-                textTransform: "uppercase",
-                marginBottom: "4px",
-              }}>
-                {greeting}
-              </div>
-              <div style={{
-                fontFamily: "'Orbitron', sans-serif",
-                fontSize: "clamp(0.82rem, 2vw, 0.96rem)",
-                fontWeight: 700,
-                color: T.text,
-                lineHeight: 1.15,
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}>
-                {user?.full_name || "Player"}
-              </div>
-              {user?.email && (
-                <div style={{
-                  fontFamily: "'Share Tech Mono', monospace",
-                  fontSize: "0.58rem",
-                  color: T.muted,
-                  marginTop: "4px",
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                }}>
-                  {user.email}
-                </div>
-              )}
+      {open && (
+        <div className="pw-card" role="dialog" aria-label="Your profile"
+          style={side.cardX != null ? { left: side.cardX, right: "auto" } : undefined}>
+          <button type="button" className="pw-close" onClick={() => setOpen(false)} aria-label="Close">
+            <X size={16} aria-hidden="true" />
+          </button>
+          <div className="pw-who">
+            <Face src={user?.profile_image} name={user?.full_name} />
+            <div>
+              <small>{greeting}</small>
+              <strong>{user?.full_name || "Player"}</strong>
+              {user?.email && <span><Mail size={13} aria-hidden="true" /><em>{user.email}</em></span>}
             </div>
           </div>
-
-          {/* Divider with label */}
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
-            <div style={{ flex: 1, height: "1px", background: T.cyanBdr }} />
-            <span style={{
-              fontFamily: "'Share Tech Mono', monospace",
-              fontSize: "0.52rem",
-              letterSpacing: "2.5px",
-              color: T.muted,
-              textTransform: "uppercase",
-            }}>
-              Activity
-            </span>
-            <div style={{ flex: 1, height: "1px", background: T.cyanBdr }} />
-          </div>
-
-          {/* Stats — just the loyalty points hero card */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "8px", marginBottom: "14px" }}>
-            {statItems.map((s, i) => (
-              <StatCard
-                key={s.key}
-                icon={<s.Icon c={s.accent} />}
-                label={s.label}
-                value={s.value}
-                accent={s.accent}
-                bg={s.bg}
-                delay={i * 0.06}
-                reducedMotion={reducedMotion}
-              />
-            ))}
-          </div>
-
-          {/* Footer: status row */}
-          <div style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            paddingTop: "10px",
-            borderTop: `1px solid ${T.cyanBdr}`,
-          }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-              <Ico.Signal />
-              <span style={{
-                fontFamily: "'Share Tech Mono', monospace",
-                fontSize: "0.55rem",
-                letterSpacing: "1.5px",
-                color: T.muted,
-                textTransform: "uppercase",
-              }}>
-                Online
-              </span>
+          <Link className="pw-loyal" to="/user/claim-points" onClick={() => setOpen(false)}>
+            <span className="pw-coin"><Coins size={22} aria-hidden="true" /></span>
+            <div>
+              <small>Loyalty points</small>
+              <b>{points.toLocaleString("en-IN")}</b>
             </div>
-            <div style={{
-              fontFamily: "'Share Tech Mono', monospace",
-              fontSize: "0.55rem",
-              letterSpacing: "1px",
-              color: T.muted,
-            }}>
-              {fmtTime(new Date())}
-            </div>
-          </div>
+            <em>Redeem <ChevronRight size={16} aria-hidden="true" /></em>
+          </Link>
         </div>
-      </motion.div>
-    </motion.div>
+      )}
+
+      <button
+        type="button"
+        className={`pw-fab${open ? " open" : ""}`}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        onClick={() => {
+          if (moved.current) { // end of a drag, not a tap
+            moved.current = false;
+            return;
+          }
+          if (open) setOpen(false);
+          else openCard();
+        }}
+        aria-expanded={open}
+        aria-label={open ? "Close profile" : `Open profile — ${points} loyalty points. Drag to move.`}
+        title="Tap to open · drag to move"
+      >
+        <span className="pw-face"><img className="pw-logo" src="/logo.png" alt="" draggable={false} /></span>
+        <span className="pw-x" aria-hidden="true" style={{ zIndex: 1, borderRadius: "50%", inset: 3 }}><X size={20} /></span>
+        {points > 0 && !open && (
+          <span className="pw-pts" aria-hidden="true"><Coins size={11} />{shortNum(points)}</span>
+        )}
+      </button>
+    </div>
   );
 }
 
-// ─── Main export ──────────────────────────────────────────────────────────────
-export default function DashboardWelcome({ user, stats }) {
-  const reducedMotion = useReducedMotion();
-
-  const [panelOpen,    setPanelOpen]    = useState(false);
-  const [toastVisible, setToastVisible] = useState(false);
-
-  useEffect(() => { injectGlobalStyles(); }, []);
-
-  // Auto-show toast after mount
-  useEffect(() => {
-    const t = setTimeout(() => setToastVisible(true), 500);
-    return () => clearTimeout(t);
-  }, []);
-
-  const greeting  = greetingByHour(new Date().getHours());
-  const firstName = user?.full_name?.split(" ")[0] || "Player";
-
-  const openPanel = () => {
-    setToastVisible(false);
-    setPanelOpen(true);
-  };
-
-  return (
-    <>
-      {/* Toast */}
-      <AnimatePresence>
-        {toastVisible && !panelOpen && (
-          <Toast
-            user={user}
-            greeting={greeting}
-            firstName={firstName}
-            onExpand={openPanel}
-            onDismiss={() => setToastVisible(false)}
-            reducedMotion={reducedMotion}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Panel */}
-      <AnimatePresence>
-        {panelOpen && (
-          <Panel
-            user={user}
-            stats={stats}
-            greeting={greeting}
-            reducedMotion={reducedMotion}
-            onClose={() => setPanelOpen(false)}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Persistent trigger tab — round, floating, draggable to reposition */}
-      <Tab
-        onClick={panelOpen ? () => setPanelOpen(false) : openPanel}
-        panelOpen={panelOpen}
-        reducedMotion={reducedMotion}
-      />
-    </>
-  );
-}
+export default DashboardWelcome;

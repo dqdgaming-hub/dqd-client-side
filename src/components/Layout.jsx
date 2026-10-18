@@ -77,10 +77,7 @@ const CSS = `
     position: relative;
   }
 
-  /* subtle top-border glow on each section */
-  .dqd-main > * + * {
-    border-top: 1px solid rgba(122, 44, 255, 0.1);
-  }
+
 
   /* ── Ambient orbs (fixed, behind everything) ───── */
   .dqd-orb {
@@ -225,19 +222,14 @@ export default function Layout({ homeData }) {
         <Navbar />
 
         <main className="dqd-main">
+          {/* Events first: they're time-limited, so they get the top spot. */}
           <HeroSlider banners={data.banners} />
-          <hr className="dqd-hr" />
           <EventSection events={data.events} />
-          <hr className="dqd-hr" />
-          <ComboSection combos={data.combo_packs} />
-          <hr className="dqd-hr" />
           <CategorySection categories={data.categories} />
-          <hr className="dqd-hr" />
+          <ComboSection combos={data.combo_packs} />
           <StatsSection stats={data.stats} />
-          <hr className="dqd-hr" />
-          <AboutSection stats={data.stats} />
-          <hr className="dqd-hr" />
-          <MapAndEnquiry />
+          <div id="about"><AboutSection stats={data.stats} /></div>
+          <div id="enquiry"><MapAndEnquiry /></div>
         </main>
 
         <Footer />
